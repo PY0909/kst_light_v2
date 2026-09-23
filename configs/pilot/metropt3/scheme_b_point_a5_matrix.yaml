@@ -1,0 +1,23 @@
+schema_version: scheme-b-point-matrix-v1
+matrix_id: scheme_b_metropt3_a5_point
+run_level: pilot
+dataset: metropt3_chrono_502030_v2
+seed: 2026
+split_seed: 2026
+mask_seed: 2026
+history_len: 168
+pred_len: 24
+stride: 60
+epochs: 50
+batch_size: 128
+hidden_dim: 64
+learning_rate: 0.0002
+weight_decay: 0.0001
+scheduler: none
+patience: 0
+grad_clip_norm: 1.0
+views: {mechanism: [mixed@0.30]}
+conditions:
+  - {condition_id: point_mixed_030, missing_mode: mixed, target_missing_rate: 0.30, views: [mechanism]}
+models:
+  - {model_id: kst_light_v2, variant_id: a5_layers1, head_type: residual, family: ours, priority: 1, recipe_version: scheme_b_v1, encoder_version: hierarchical_missingness_kaf_v1, missing_feature_version: causal_missingness_v1, cross_variable_mode: fla, patch_lens: [12, 24, 48], freshness_tau: 24.0, n_layers: 1}

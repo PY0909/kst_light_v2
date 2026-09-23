@@ -1,0 +1,49 @@
+schema_version: pilot-probabilistic-matrix-v1
+matrix_id: pilot_metropt3_probabilistic
+run_level: pilot
+dataset: metropt3_chrono_502030_v2
+seed: 2026
+split_seed: 2026
+mask_seed: 2026
+history_len: 168
+pred_len: 24
+stride: 60
+epochs: 50
+batch_size: 128
+hidden_dim: 64
+interval_level: 0.95
+nsamples: 100
+views:
+  mechanism:
+    - mixed@0.30
+conditions:
+  # The only Chapter 4 probability condition: the center mixed mechanism at
+  # the preregistered 0.30 target rate.
+  - condition_id: prob_mixed_030
+    missing_mode: mixed
+    target_missing_rate: 0.30
+    views: [mechanism]
+# Six adapted probability baselines keep their registry implementation
+# identity; the project model is scheduled last.
+models:
+  - model_id: tcn_gaussian
+    family: baseline
+    priority: 1
+  - model_id: patchtst_gaussian
+    family: baseline
+    priority: 2
+  - model_id: gru_d_gaussian
+    family: baseline
+    priority: 3
+  - model_id: ode_rnn_gaussian
+    family: baseline
+    priority: 4
+  - model_id: grafiti_gaussian
+    family: baseline
+    priority: 5
+  - model_id: profiti
+    family: baseline
+    priority: 6
+  - model_id: kst_probflow
+    family: ours
+    priority: 7

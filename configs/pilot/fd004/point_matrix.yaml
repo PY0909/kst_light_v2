@@ -1,0 +1,77 @@
+schema_version: pilot-point-matrix-v1
+matrix_id: pilot_fd004_point
+run_level: pilot
+dataset: cmapss_fd004
+seed: 2026
+split_seed: 2026
+mask_seed: 2026
+history_len: 50
+pred_len: 10
+stride: 1
+epochs: 80
+batch_size: 128
+hidden_dim: 64
+views:
+  intensity:
+    - random@0.00
+    - random@0.30
+    - random@0.70
+  mechanism:
+    - random@0.30
+    - low_rate@0.30
+    - block_offline@0.30
+    - mixed@0.30
+conditions:
+  - condition_id: point_random_000
+    missing_mode: random
+    target_missing_rate: 0.00
+    views: [intensity]
+  - condition_id: point_random_030
+    missing_mode: random
+    target_missing_rate: 0.30
+    views: [intensity, mechanism]
+  - condition_id: point_random_070
+    missing_mode: random
+    target_missing_rate: 0.70
+    views: [intensity]
+  - condition_id: point_low_rate_030
+    missing_mode: low_rate
+    target_missing_rate: 0.30
+    views: [mechanism]
+  - condition_id: point_block_offline_030
+    missing_mode: block_offline
+    target_missing_rate: 0.30
+    views: [mechanism]
+  - condition_id: point_mixed_030
+    missing_mode: mixed
+    target_missing_rate: 0.30
+    views: [mechanism]
+models:
+  - model_id: li_tcn
+    head_type: linear
+    family: baseline
+    priority: 1
+  - model_id: ff_gru
+    head_type: linear
+    family: baseline
+    priority: 2
+  - model_id: masked_tcn
+    head_type: linear
+    family: baseline
+    priority: 3
+  - model_id: gru_d
+    head_type: linear
+    family: baseline
+    priority: 4
+  - model_id: ode_rnn
+    head_type: linear
+    family: baseline
+    priority: 5
+  - model_id: kst_light
+    head_type: linear
+    family: ours
+    priority: 6
+  - model_id: kst_light
+    head_type: mlp
+    family: ours
+    priority: 7
