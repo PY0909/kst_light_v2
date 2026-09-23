@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import argparse
 import json
+import os
 import time
 from dataclasses import asdict, dataclass
 from datetime import datetime
@@ -23,6 +24,7 @@ from kaf_profiti.experiments.metrics import (
     safe_binary_metrics,
 )
 from kaf_profiti.experiments.registry import create_model, get_model_spec
+from kaf_profiti.experiments.runtime_paths import resolve_runtime_paths
 from kaf_profiti.industrial.batch import IndustrialCollator
 
 
@@ -35,8 +37,8 @@ class ExperimentConfig:
     history_len: int = 96
     pred_len: int = 24
     stride: int = 1
-    data_root: str = "/root/autodl-tmp/dataset"
-    output_dir: str = "/root/autodl-tmp/result"
+    data_root: Optional[str] = None
+    output_dir: Optional[str] = None
     run_id: str = ""
     epochs: int = 1
     batch_size: int = 16
@@ -639,6 +641,12 @@ def run_experiment(config: ExperimentConfig) -> Dict[str, object]:
         raise NotImplementedError(f"Model {config.model} is registered as {spec.status}")
     torch.manual_seed(config.seed)
     np.random.seed(config.seed)
+    # Resolve roots through the KST_* contract: explicit values win, then
+    # environment, then repository-relative dataset/ and results/ defaults.
+    # Explicit absolute paths (tests, checkpoint re-runs) pass through.
+    paths = resolve_runtime_paths(config.data_root, config.output_dir, os.environ)
+    config.data_root = str(paths.data_root)
+    config.output_dir = str(paths.output_root)
     output_dir = Path(config.output_dir)
     if not config.run_id:
         config.run_id = _timestamp_run_id()
@@ -878,8 +886,8 @@ def parse_args() -> ExperimentConfig:
     parser.add_argument("--history-len", type=int, default=96)
     parser.add_argument("--pred-len", type=int, default=24)
     parser.add_argument("--stride", type=int, default=1)
-    parser.add_argument("--data-root", default="/root/autodl-tmp/dataset")
-    parser.add_argument("--output-dir", default="/root/autodl-tmp/result")
+    parser.add_argument("--data-root", default=None, help="defaults to KST_DATA_ROOT / repo dataset/")
+    parser.add_argument("--output-dir", default=None, help="defaults to KST_RESULT_ROOT / repo results/")
     parser.add_argument("--run-id", default="")
     parser.add_argument("--epochs", type=int, default=1)
     parser.add_argument("--batch-size", type=int, default=16)

@@ -980,3 +980,14 @@
   4. `_create_tep` 仅加载 fault-free 数据（风险标签全负类），TEP pilot 只能定性为接线验证，faulty 集成归 V2-P06；
   5. FD004 已有 learnability 诊断入口 `code/diagnostics/fd004_learnability_sanity.py`（--rate 0.0/0.3，默认 6 epochs）；
   6. 本机无 CUDA，正式单 seed 需 AutoDL；X0-T03 代为执行 P03 预检，完成后 P03 视为通过。
+
+## 2026-09-24（V2-X0-T01 完成）
+
+- **TDD 过程**：先删除 `test_portability_policy.py` 中 `code/run_experiment.py` 的 4 条 allowlist 豁免 → portability 测试转红（精确命中 line 38/39/881/882）→ 修复后转绿（2 passed）。
+- **run_experiment.py 改动**：
+  1. `ExperimentConfig.data_root/output_dir` 默认值由 `/root/autodl-tmp/...` 改为 `None`（argparse 同步为 None，附 help 说明）；
+  2. `run_experiment()` 入口经 `resolve_runtime_paths(config.data_root, config.output_dir, os.environ)` 解析后写回 config（持久化的 config YAML 因此记录解析后路径）；显式绝对路径（测试 tmp_path、checkpoint 续跑）原样透传；
+  3. 新增 `import os` 与 `resolve_runtime_paths` 导入。
+- **解析语义验证**：无参数 → 仓库 `dataset/`+`results/`；`KST_RESULT_ROOT` 优先；显式绝对路径透传。三项断言通过（/tmp 符号链接经 realpath 归一化属预期行为）。
+- **回归**：全量 `pytest code/tests/ -q` → 391 passed / 0 failed（与 T01 前基线一致）。
+- 备注：`_apply_checkpoint_config` 仅合并架构字段、不恢复路径，解析放在入口处安全；checkpoint-mode 续跑历史 run 时旧绝对路径会原样透传（历史行为保持，不做迁移）。

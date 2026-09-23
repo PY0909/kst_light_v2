@@ -319,15 +319,15 @@ __pycache__/
 
 #### Task V2-X0-T01：run_experiment.py 路径治理
 
-- [ ] **Task V2-X0-T01 完成：入口脚本零硬编码路径，默认解析走 KST_* 契约**
+- [x] **Task V2-X0-T01 完成：入口脚本零硬编码路径，默认解析走 KST_* 契约**
 
 **文件：**
 - 修改：`code/run_experiment.py`
 - 修改：`code/tests/ch3/test_portability_policy.py`（删除 `code/run_experiment.py` 的 4 条 allowlist 豁免）
 
-- [ ] 以 portability 测试为失败测试驱动：先删除 4 条 allowlist 豁免，运行 `PYTHONPATH=code python -m pytest code/tests/ch3/test_portability_policy.py -q` 确认转红。
-- [ ] 将 `--data-root`/`--output-dir` 默认值从 `/root/autodl-tmp/...` 改为 None，经 `resolve_runtime_paths` 解析（`KST_DATA_ROOT`/`KST_RESULT_ROOT` → 仓库相对 `dataset/`、`results/` 默认）。
-- [ ] 重跑 portability 测试确认转绿；运行 `python code/run_experiment.py --help` 确认可在仓库根正常解析。
+- [x] 以 portability 测试为失败测试驱动：先删除 4 条 allowlist 豁免，运行 `PYTHONPATH=code python -m pytest code/tests/ch3/test_portability_policy.py -q` 确认转红。
+- [x] 将 `--data-root`/`--output-dir` 默认值从 `/root/autodl-tmp/...` 改为 None，经 `resolve_runtime_paths` 解析（`KST_DATA_ROOT`/`KST_RESULT_ROOT` → 仓库相对 `dataset/`、`results/` 默认）。
+- [x] 重跑 portability 测试确认转绿；运行 `python code/run_experiment.py --help` 确认可在仓库根正常解析。
 
 **验收：** `code/run_experiment.py` 零机器路径命中；portability 全绿；全量 pytest 无回归。
 
