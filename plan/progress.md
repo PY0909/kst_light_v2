@@ -991,3 +991,9 @@
 - **解析语义验证**：无参数 → 仓库 `dataset/`+`results/`；`KST_RESULT_ROOT` 优先；显式绝对路径透传。三项断言通过（/tmp 符号链接经 realpath 归一化属预期行为）。
 - **回归**：全量 `pytest code/tests/ -q` → 391 passed / 0 failed（与 T01 前基线一致）。
 - 备注：`_apply_checkpoint_config` 仅合并架构字段、不恢复路径，解析放在入口处安全；checkpoint-mode 续跑历史 run 时旧绝对路径会原样透传（历史行为保持，不做迁移）。
+
+## 2026-09-24（V2-X0-T02 完成）
+
+- `configs/ch3/fd004_external.yaml`、`configs/ch3/tep_external.yaml` 的 `model: kst_light` → `model: kst_light_v2`。
+- 验收：`grep "model: kst_light$"` 对两个文件无命中；registry 确认 `kst_light_v2` 状态 `enabled`（显示名 KST-Light v2），并按 FD004 配置维度（hidden_dim=64）成功实例化（250,559 参数）。
+- `metropt_main.yaml` 保持 `model: kst_light` 未动（归 V2-P01-T01）。

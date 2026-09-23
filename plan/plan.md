@@ -333,14 +333,14 @@ __pycache__/
 
 #### Task V2-X0-T02：external 配置模型身份修正
 
-- [ ] **Task V2-X0-T02 完成：external 两个配置指向 kst_light_v2**
+- [x] **Task V2-X0-T02 完成：external 两个配置指向 kst_light_v2**
 
 **文件：**
 - 修改：`configs/ch3/fd004_external.yaml`、`configs/ch3/tep_external.yaml`
 
-- [ ] 两个配置 `model: kst_light` → `model: kst_light_v2`（registry 已含该 ID）。
-- [ ] 验证：`grep -rn "model: kst_light$" configs/ch3/fd004_external.yaml configs/ch3/tep_external.yaml` 无输出。
-- [ ] `configs/ch3/metropt_main.yaml` 的修正仍归 V2-P01-T01，本 Task 不动。
+- [x] 两个配置 `model: kst_light` → `model: kst_light_v2`（registry 已含该 ID）。
+- [x] 验证：`grep -rn "model: kst_light$" configs/ch3/fd004_external.yaml configs/ch3/tep_external.yaml` 无输出。
+- [x] `configs/ch3/metropt_main.yaml` 的修正仍归 V2-P01-T01，本 Task 不动。
 
 **验收：** external 配置不再指向旧模型 ID；后续任何人都无法用这两个配置静默跑出旧模型。
 
