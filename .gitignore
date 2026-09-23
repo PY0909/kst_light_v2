@@ -20,3 +20,6 @@ __pycache__/
 # 本机环境配置（记录建议值用 .env.example，实际值不入库）
 .env
 .envrc
+
+# 旧默认输出根（runtime_paths 遗留命名，防程序产物误入库）
+result/

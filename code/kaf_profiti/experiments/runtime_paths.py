@@ -49,7 +49,7 @@ def resolve_runtime_paths(
 
     Explicit ``data_root`` and ``output_root`` values override their corresponding
     environment variables. ``KST_DATA_ROOT`` and ``KST_RESULT_ROOT`` then override
-    the ``dataset`` and ``result`` defaults below ``KST_PROJECT_ROOT`` (or this
+    the ``dataset`` and ``results`` defaults below ``KST_PROJECT_ROOT`` (or this
     repository's inferred root). Relative paths are always resolved from the
     selected project root, never from the caller's working directory.
 
@@ -68,7 +68,7 @@ def resolve_runtime_paths(
     selected_data_root = _configured_value(data_root, environ, "KST_DATA_ROOT")
     selected_output_root = _configured_value(output_root, environ, "KST_RESULT_ROOT")
     resolved_data_root = _resolve_against_project(selected_data_root or "dataset", project_root)
-    resolved_output_root = _resolve_against_project(selected_output_root or "result", project_root)
+    resolved_output_root = _resolve_against_project(selected_output_root or "results", project_root)
 
     if require_existing_data and not resolved_data_root.is_dir():
         raise FileNotFoundError(f"Configured data root does not exist: {resolved_data_root}")

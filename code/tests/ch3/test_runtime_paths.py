@@ -67,7 +67,7 @@ def test_repository_relative_defaults_and_paths_are_normalized(tmp_path: Path):
 
     assert paths.project_root == project_root.resolve()
     assert paths.data_root == (project_root / "dataset").resolve()
-    assert paths.output_root == (project_root / "result").resolve()
+    assert paths.output_root == (project_root / "results").resolve()
     assert all(path.is_absolute() for path in (paths.project_root, paths.data_root, paths.output_root))
 
 
