@@ -289,18 +289,18 @@ __pycache__/
 
 #### Task V2-P00-T06：全量测试、clean commit、tag 与 GitHub 推送
 
-- [ ] **Task V2-P00-T06 完成：v0.1-freeze 已推送 GitHub**
+- [x] **Task V2-P00-T06 完成：v0.1-freeze 已推送 GitHub**
 
 **文件：**
 - 创建：`.git/`（`git init`）
 - 参考：`environment.yml`、`requirement.txt`
 
-- [ ] 确认 Conda：`conda env list` 含 `kst_probflow`；`which python` 指向 Conda 而非旧 venv。
-- [ ] 运行 `PYTHONPATH=code python -m pytest code/tests/ -q`；记录通过/失败数，失败项修复或显式标记 skip 原因（缺外部数据时用 skip marker，不得以 `FileNotFoundError` 充当正常结果）。
-- [ ] `git init` 并绑定远端：`git remote add origin https://github.com/PY0909/kst_light_v2.git`。
-- [ ] `git add` 后检查 `git status --porcelain`，确认 `dataset/`、`results/`、`vendor/` 均未被跟踪。
-- [ ] 创建 clean commit，打 tag `v0.1-freeze`，push 含 tag。
-- [ ] 验证：`git status --porcelain | wc -l` 输出 `0`；`git tag` 含 `v0.1-freeze`。
+- [x] 确认 Conda：`conda env list` 含 `kst_probflow`；`which python` 指向 Conda 而非旧 venv。
+- [x] 运行 `PYTHONPATH=code python -m pytest code/tests/ -q`；记录通过/失败数，失败项修复或显式标记 skip 原因（缺外部数据时用 skip marker，不得以 `FileNotFoundError` 充当正常结果）。
+- [x] `git init` 并绑定远端：`git remote add origin https://github.com/PY0909/kst_light_v2.git`。
+- [x] `git add` 后检查 `git status --porcelain`，确认 `dataset/`、`results/`、`vendor/` 均未被跟踪。
+- [x] 创建 clean commit，打 tag `v0.1-freeze`，push 含 tag。
+- [x] 验证：`git status --porcelain | wc -l` 输出 `0`；`git tag` 含 `v0.1-freeze`。
 
 **验收：** 仓库干净、远端可达、tag 已推送。此 Phase 完成前不启动任何正式 GPU 训练。
 

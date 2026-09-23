@@ -965,3 +965,7 @@
 - **环境决策（用户确认）**：维持 `environment.yml` python=3.12 作为跨机契约；用 yml 新建 `kst_probflow` 环境（Python 3.12.14 + torch 2.5.1 + numpy 2.0.2 + pandas 2.2.3 + sklearn 1.6.1 + pytest 8.4.2，全部与 yml 一致）；未采用 clone 旧 3.11 环境、也未原地升级 `kaf_profiti` 环境（保留其复现旧结果能力）。yml 缺口已补：`pyyaml=6.0.2`、`tqdm=4.67.1`（requirement.txt 原有，yml 遗漏）；移除 yml 中会导致 `conda env create` 失败的 `pip -e .` 行（仓库无 pyproject.toml）。
 - **测试基线（T06 前）**：`PYTHONPATH=code pytest code/tests/ -q` → 8 failed / 383 passed / 0 skipped；8 项失败全部是 `test_pilot_environment.py`，原因均为 preflight 需要 Git 仓库（`git rev-parse HEAD`），待 T06 git init 后复验。
 - **文档迁移**：从 new_work 补齐 `tables/table-schema.md`、`figures/data-manifest.md`（portability 测试要求的 CH3 契约文档，v2 plan/ 已有其余 11 份）。
+- **T06 完成**：`git init`（main 分支）+ 绑定 `origin https://github.com/PY0909/kst_light_v2.git`；187 文件 clean commit（`7cbebbb2`）+ tag `v0.1-freeze` + 推送成功；`git status --porcelain` 为 0；dataset/results/vendor 均未入库；无超 50MB 文件。
+- **全量测试（最终）**：391 passed / 0 failed / 0 skipped（git 初始化后 8 项 preflight 测试恢复）。
+- **身份登记（T03 收尾）**：preflight（metropt3/local）生成 `results/pilot/metropt3/environment/local-preflight.json`：`raw_data_sha256=48f6c4a6…ef3ea`（protocol fingerprint，帧内容哈希）、`split_sha256=eb7b957c…`（与 data_gate 完全一致，跨产物身份闭合）、git commit `7cbebbb2`、mask bundles 3 份指纹化。
+- **Phase V2-P00 关闭**：所有 6 个 Task 勾选完成，门禁达成。
