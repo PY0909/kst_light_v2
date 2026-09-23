@@ -969,3 +969,14 @@
 - **全量测试（最终）**：391 passed / 0 failed / 0 skipped（git 初始化后 8 项 preflight 测试恢复）。
 - **身份登记（T03 收尾）**：preflight（metropt3/local）生成 `results/pilot/metropt3/environment/local-preflight.json`：`raw_data_sha256=48f6c4a6…ef3ea`（protocol fingerprint，帧内容哈希）、`split_sha256=eb7b957c…`（与 data_gate 完全一致，跨产物身份闭合）、git commit `7cbebbb2`、mask bundles 3 份指纹化。
 - **Phase V2-P00 关闭**：所有 6 个 Task 勾选完成，门禁达成。
+
+## 2026-09-24（V2-X0 规划）
+
+- 应用户要求，在 V2-P01 前新增 **V2-X0：FD004/TEP 单 seed 接线 pilot**（插在 V2-P00 与 V2-P01 之间，不重排现有编号）。定位：接线与可学习性证据，`formal_comparison_eligible: false`；正式外部验证仍归 V2-P06。
+- 规划前代码核查发现（已写入计划"已核实的现状"）：
+  1. registry 中 `kst_light`（旧）与 `kst_light_v2`（新）并存，ch3 配置不改 ID 会静默跑错模型；
+  2. `configs/ch3/*.yaml` 无代码消费（仅 portability 测试扫描），实际单跑入口是 `code/run_experiment.py` 纯 CLI；
+  3. `run_experiment.py` 硬编码 AutoDL 默认路径（`/root/autodl-tmp/...`）且不走 `resolve_runtime_paths`，portability allowlist 有 4 条豁免；
+  4. `_create_tep` 仅加载 fault-free 数据（风险标签全负类），TEP pilot 只能定性为接线验证，faulty 集成归 V2-P06；
+  5. FD004 已有 learnability 诊断入口 `code/diagnostics/fd004_learnability_sanity.py`（--rate 0.0/0.3，默认 6 epochs）；
+  6. 本机无 CUDA，正式单 seed 需 AutoDL；X0-T03 代为执行 P03 预检，完成后 P03 视为通过。

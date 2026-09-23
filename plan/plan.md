@@ -16,7 +16,7 @@
 4. 结果目录同时存在 `results/runs/` 与代码默认的 `results/pilot/<dataset>/runs/` 两种结构，且 [pilot_runner.py](../code/kaf_profiti/experiments/pilot_runner.py) 的 `pilot_root` 默认值为 `pilot/fd004`，MetroPT 实验若不显式传参会落错目录。
 5. `configs/ch3/` 下三个 YAML 仍使用旧模型 ID `kst_light`，不能作为 `kst_light_v2` 的正式对比矩阵。
 
-因此先执行 V2-P00～V2-P03 的迁移、冻结与接线验证，再按 V2-P04～V2-P09 依次产生正式结果。任一 Phase 的完成门禁未通过，禁止进入下一 Phase。
+因此先执行 V2-P00～V2-P03 的迁移、冻结与接线验证（含 V2-X0 外部数据集单 seed 接线 pilot，插在 V2-P00 与 V2-P01 之间执行），再按 V2-P04～V2-P09 依次产生正式结果。任一 Phase 的完成门禁未通过，禁止进入下一 Phase。
 
 ## 2. 当前工程状态与已核实资产
 
@@ -68,7 +68,9 @@
 | `__pycache__`、`.DS_Store`、`code.zip` 残留 | 仓库噪声；跨 Python 版本 `.pyc` 混杂 | V2-P00 |
 | `pilot_root` 默认 `pilot/fd004` | MetroPT 结果可能写入错误目录且不易察觉 | V2-P00 |
 | 结果目录双结构（`results/runs/` vs `results/pilot/<dataset>/runs/`） | 两类结果格式不能混合统计 | V2-P00～P01 |
-| `configs/ch3/*.yaml` 仍为 `model: kst_light` | 矩阵身份错误，跑出来的是旧模型 | V2-P01 |
+| `configs/ch3/*.yaml` 仍为 `model: kst_light` | registry 中 `kst_light` 与 `kst_light_v2` 并存，旧 ID 会被静默接受跑错模型而不报错 | V2-X0（external 两个）/ V2-P01（metropt_main） |
+| `run_experiment.py` 硬编码 AutoDL 默认路径（portability allowlist 4 条豁免） | 绕过 `KST_*` 环境变量契约，本机误跑会写错位置 | V2-X0 |
+| TEP 协议仅加载 fault-free（`_create_tep`），风险标签全负类 | 不具备正式外部验证资格 | V2-X0 明确边界，V2-P06 集成 faulty |
 | 六个 H2 结果未归档、聚合脚本可扫描到 | pilot 结果可能误入正式表格 | V2-P01 |
 | registry 中 KAFNet 系列为 `not_implemented` | 不能在论文中标记为已完成对比模型 | V2-P07 前置适配 |
 | 外部验证（FD004/TEP）无独立阶段与门禁 | 赶工时易降低公平性标准（如 TEP 用 fault-free 顶替 faulty） | V2-P06 |
@@ -155,7 +157,8 @@ v1.0-paper-freeze     V2-P09 完成后
 | Phase | 代码任务 | 实验任务 | 完成门禁 |
 |---|---|---|---|
 | **V2-P00 工程迁移与 Git 冻结** | `.gitignore`、缓存清理、`compare_code/`、数据迁移、pilot_root 修复、data gate | 不跑正式训练 | clean commit + tag `v0.1-freeze` + push GitHub；`git status --porcelain` 为空 |
-| **V2-P01 公平点预测矩阵** | 修正 `configs/ch3/*.yaml` 模型 ID；新建 6×6 矩阵；归档 H2 结果 | 不跑训练 | 矩阵含 6 模型与统一配方字段；聚合扫描不到归档结果 |
+| **V2-X0 外部数据集接线 pilot** | `run_experiment.py` 路径治理；external 配置模型 ID 修正；AutoDL 最小预检 | FD004/TEP 各 1 次 `kst_light_v2` 单 seed（TEP 允许 sanity 降级） | 全量测试无回归；结果仅作接线/可学习性证据，`formal_comparison_eligible: false` |
+| **V2-P01 公平点预测矩阵** | 修正 `configs/ch3/metropt_main.yaml` 模型 ID；新建 6×6 矩阵；归档 H2 结果 | 不跑训练 | 矩阵含 6 模型与统一配方字段；聚合扫描不到归档结果 |
 | **V2-P02 本机 Conda 接线验证** | 依赖确认、测试修复 | 全量 pytest、dry-run、CPU smoke、一致性检查 | 全部测试通过；六模型 split/normalization/mask 一致 |
 | **V2-P03 AutoDL 环境预检** | 远端 checkout、环境核对 | 无训练；SHA 跨机比对 | 远端 SHA 与本机一致；dry-run 通过（可与 P04 合并在有卡实例执行） |
 | **V2-P04 中心条件单种子** | GPU preflight、CUDA smoke | mixed@0.30 × 6 模型 = 6 runs | `completed=6、nonfinite=0、fairness_mismatch=0、test_count_error=0`，三类 SHA 一致 |
@@ -306,6 +309,85 @@ __pycache__/
 
 ---
 
+### V2-X0：FD004 / TEP 单 seed 接线 pilot（V2-P01 前置）
+
+- [ ] **Phase V2-X0 完成：两个外部数据集在 v2 冻结环境下端到端可跑，模型可学习性信号已取得**
+
+**定位与边界：** 本 Phase 不是正式外部验证（那仍是 V2-P06 的职责），而是在投入矩阵建设（V2-P01）之前，先确认 FD004/TEP 两个通道在 v2 冻结环境下端到端可跑、`kst_light_v2` 可学习，并取得训练耗时/资源信号。结论权限与 MetroPT H2 pilot 相同：仅接线与模型选择证据，`formal_comparison_eligible: false`，不得进入论文正式表格。
+
+**已核实的现状（2026-09-24）：** registry 中 `kst_light` 与 `kst_light_v2` 并存（旧 ID 被静默接受）；`configs/ch3/*.yaml` 无代码消费，实际单跑入口是 `code/run_experiment.py` 纯 CLI；该 CLI 硬编码 AutoDL 默认路径且不走 `resolve_runtime_paths`；`_create_tep` 仅加载 fault-free 数据；本机无 CUDA，正式单 seed 需 AutoDL。
+
+#### Task V2-X0-T01：run_experiment.py 路径治理
+
+- [ ] **Task V2-X0-T01 完成：入口脚本零硬编码路径，默认解析走 KST_* 契约**
+
+**文件：**
+- 修改：`code/run_experiment.py`
+- 修改：`code/tests/ch3/test_portability_policy.py`（删除 `code/run_experiment.py` 的 4 条 allowlist 豁免）
+
+- [ ] 以 portability 测试为失败测试驱动：先删除 4 条 allowlist 豁免，运行 `PYTHONPATH=code python -m pytest code/tests/ch3/test_portability_policy.py -q` 确认转红。
+- [ ] 将 `--data-root`/`--output-dir` 默认值从 `/root/autodl-tmp/...` 改为 None，经 `resolve_runtime_paths` 解析（`KST_DATA_ROOT`/`KST_RESULT_ROOT` → 仓库相对 `dataset/`、`results/` 默认）。
+- [ ] 重跑 portability 测试确认转绿；运行 `python code/run_experiment.py --help` 确认可在仓库根正常解析。
+
+**验收：** `code/run_experiment.py` 零机器路径命中；portability 全绿；全量 pytest 无回归。
+
+#### Task V2-X0-T02：external 配置模型身份修正
+
+- [ ] **Task V2-X0-T02 完成：external 两个配置指向 kst_light_v2**
+
+**文件：**
+- 修改：`configs/ch3/fd004_external.yaml`、`configs/ch3/tep_external.yaml`
+
+- [ ] 两个配置 `model: kst_light` → `model: kst_light_v2`（registry 已含该 ID）。
+- [ ] 验证：`grep -rn "model: kst_light$" configs/ch3/fd004_external.yaml configs/ch3/tep_external.yaml` 无输出。
+- [ ] `configs/ch3/metropt_main.yaml` 的修正仍归 V2-P01-T01，本 Task 不动。
+
+**验收：** external 配置不再指向旧模型 ID；后续任何人都无法用这两个配置静默跑出旧模型。
+
+#### Task V2-X0-T03：最小 AutoDL 预检（通过后 P03 视为完成）
+
+- [ ] **Task V2-X0-T03 完成：远端 checkout 干净、SHA 与本机一致、dry-run 通过**
+
+- [ ] 执行 V2-P03-T01 全部步骤（checkout `v0.1-freeze`、`git status --porcelain` 为空、设置三个 `KST_*` 环境变量、MetroPT/CMAPSS/TEP 数据 SHA 核验、Conda 环境与 `environment.yml` 一致、dry-run、跨机 SHA 比对）。
+- [ ] 完成后在本文件将 V2-P03 的 Task V2-P03-T01 与 Phase V2-P03 一并勾选，并注明"由 V2-X0-T03 代为完成"。
+
+**验收：** AutoDL 具备与 v0.1-freeze 一致的代码、数据与环境身份；CMAPSSData 与 dataverse_files 已随数据迁移在位。
+
+#### Task V2-X0-T04：FD004 单 seed pilot
+
+- [ ] **Task V2-X0-T04 完成：FD004 可学习性门禁 + 全量单 seed run 完成**
+
+**文件：**
+- 计划生成：`results/pilot/fd004/`（sanity）与 run 产物目录（记录实际位置到 progress）
+
+- [ ] 本机 CPU 快速门禁：`PYTHONPATH=code python code/diagnostics/fd004_learnability_sanity.py --rate 0.3`（内置约 6 epochs）；不可学习则停下分析，不带病上 GPU。
+- [ ] AutoDL 全量单 seed（按 `fd004_external.yaml` 显式传全参，禁止依赖 CLI 默认）：`--dataset cmapss_fd004 --model kst_light_v2 --seed 2026 --split-seed 2026 --missing-mode mixed --missing-rate 0.3 --history-len 50 --pred-len 10 --stride 1 --epochs 80 --batch-size 128 --hidden-dim 64` 及该配置其余字段。
+- [ ] 记录到 progress.md：learnability 结论、test MAE/RMSE、训练/推理耗时、峰值显存、实际配方（含 CLI 默认补全的字段如 lr/weight_decay/scheduler）。
+
+**验收：** 产生 1 个 FD004 × `kst_light_v2` 单 seed run；耗时与可学习性信号已登记，可支撑 V2-P01 配方决策与 GPU 预算估算。
+
+#### Task V2-X0-T05：TEP 接线 pilot（fault-free 限定）
+
+- [ ] **Task V2-X0-T05 完成：TEP 通道接线验证完成，边界已声明**
+
+- [ ] 声明边界（写入 progress.md）：当前 `_create_tep` 仅支持 fault-free 数据、风险标签全负类，故本 pilot 不评估任何风险指标，结论仅限"通道可跑 + 点预测可学习性观察"；faulty 集成仍归 V2-P06，届时必须接入 faulty runs 并按 simulation run 隔离。
+- [ ] AutoDL 单 seed：`--dataset tep --model kst_light_v2 --seed 2026 --missing-mode mixed --missing-rate 0.3 --history-len 96 --pred-len 24 --stride 12 --epochs 50 --batch-size 128 --hidden-dim 64` 及该配置其余字段。
+- [ ] 若全量 50 epochs 时长不可接受，允许降级为短 epoch sanity（如 10–15 epochs）并在 progress.md 记录降级原因与实际 epoch 数。
+
+**验收：** TEP 通道产生 ≥1 个 run（或明确记录的降级 sanity）；无任何风险指标被输出或引用。
+
+#### Task V2-X0-T06：结果归档与配方反馈
+
+- [ ] **Task V2-X0-T06 完成：结论权限已标注，配方建议已反馈 P01**
+
+- [ ] 两个数据集的 run 产物统一落 `results/`（runtime paths 解析），不与 MetroPT H2 结果混放。
+- [ ] progress.md 登记：`formal_comparison_eligible: false`、run_id 清单、发现的问题清单（适配缺陷、数据异常、超时项）。
+- [ ] 给 V2-P01 的书面建议：统一配方是否需要为 FD004/TEP 调整 epochs/lr；若需要，在 V2-P01-T01 建矩阵时一并固定。
+
+**验收：** V2-P01 启动时无需重新探索两个外部数据集的基本盘。
+
+---
+
 ### V2-P01：建立 v2 公平点预测矩阵
 
 - [ ] **Phase V2-P01 完成：v2 专用 6×6 点预测矩阵就绪，pilot 结果已隔离**
@@ -321,7 +403,7 @@ __pycache__/
 - [ ] 矩阵模型固定为 `li_tcn、ff_gru、masked_tcn、gru_d、ode_rnn、kst_light_v2`。
 - [ ] 固定第 5 节数据合同：`metropt3_chrono_502030_v2`、168/24/60、`seed=split_seed=mask_seed=2026`、六缺失条件、中心条件 `mixed@0.30`。
 - [ ] 显式记录统一配方字段：`epochs / batch_size / learning_rate / weight_decay / scheduler / grad_clip_norm / selection_metric`；`selection_metric` 固定 validation MAE。
-- [ ] 同步修正 `configs/ch3/fd004_external.yaml`、`configs/ch3/tep_external.yaml` 的 `model: kst_light` 为 `kst_light_v2`（实验本体在 V2-P06 执行）。
+- [ ] 核验 `configs/ch3/fd004_external.yaml`、`configs/ch3/tep_external.yaml` 已由 V2-X0-T02 修正为 `kst_light_v2`（实验本体在 V2-P06 执行）。
 - [ ] 验证：`grep -rn "model: kst_light$" configs/` 无输出（排除 `kst_light_v2` 命中）。
 
 **验收：** 任何 ch3 配置都不再指向旧模型 ID；矩阵可直接被 runner 展开。
@@ -561,6 +643,7 @@ __pycache__/
 
 ```text
 V2-P00 迁移与 Git 冻结（.gitignore -> 清理 -> compare_code -> 数据+data gate -> vendor -> pilot_root 修复 -> 测试+clean commit+tag v0.1-freeze+push）
+  -> V2-X0 外部数据集接线 pilot（run_experiment 路径治理 -> external 配置 ID -> AutoDL 最小预检（代 P03） -> FD004 单 seed -> TEP 单 seed -> 归档与配方反馈）
   -> V2-P01 点预测矩阵（配置 v2 化 -> H2 结果归档）
   -> V2-P02 本机 Conda 接线验证（环境 -> 全量测试 -> dry-run/smoke -> 一致性检查）
   -> V2-P03 AutoDL 预检（checkout -> SHA 跨机比对 -> dry-run）
