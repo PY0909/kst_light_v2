@@ -640,6 +640,8 @@ V2-P00 迁移与 Git 冻结（.gitignore -> 清理 -> compare_code -> 数据+dat
 
 **权威执行顺序：** `V2-X0` 外部接线收尾 → `V2-LITE` 点模型轻量化 → `V2-CH3-CODE` → `V2-CH3-SINGLE` → `V2-CH4-CODE` → `V2-CH4-SINGLE` → `V2-CH5-CODE` → `V2-CH5-SINGLE` → `V2-MULTI` → `V2-FREEZE`。旧计划中的 V2-P01～V2-P09 只作历史索引，不得作为另一条并行路线。
 
+**重排记录（2026-09-25）：** 经确认三项执行口径：① V2-LITE 保留，正式单 seed 前先冻结本文模型结构配方；② 各章单 seed 阶段内外部五协议（FD001–FD004、`tep_faulty`）先于 MetroPT 全条件矩阵执行，但 MetroPT 中心条件 go/no-go 仍为最前置门禁；③ 多 seed 门禁不变——第三、四、五章单 seed 全部通过才进 V2-MULTI。
+
 **legacy 配置口径（2026-09-25）：** `configs/pilot/` 为旧 pilot 基础设施，仅供历史审计，权威路线的新矩阵一律落在 `configs/ch3/`、`configs/ch4/`、`configs/ch5/`；其中残留的旧模型 ID 已修正为 `kst_light_v2`，防止误跑旧模型。
 
 ## A. 不可改变的科学合同
@@ -806,21 +808,24 @@ FD001、FD002、FD003、FD004 是四个独立正式协议。MetroPT 使用 `rand
 - [ ] 记录 validation MAE、test MAE/RMSE、训练/推理时间和参数量；生成 `ch3_central_go_no_go.json`。
 - [ ] 只有本文模型在预定义主指标达到 baseline 参照且所有公平性门禁通过，才允许扩展其余条件。
 
-### Task V2-CH3-SINGLE-T03：MetroPT 六条件完整矩阵
+### Task V2-CH3-SINGLE-T03：FD001–FD004 与 TEP 点预测单 seed（外部优先）
 
-- [ ] 在中心条件通过后运行其余五个缺失条件的五 baseline + 本文模型，共 30 runs。
-- [ ] 检查每个条件的 mask bundle、split、normalization 和 evaluator SHA 一致；不同缺失机制不得复用错误 mask。
-- [ ] 汇总 36 runs 为第三章单 seed表，标记 `formal_validated`，打 tag `v0.2-ch3-single-seed`。
+**重排说明（2026-09-25）：** 经确认，外部数据集正式单 seed 提前到 MetroPT 六条件之前执行；MetroPT 中心条件 go/no-go（T01/T02）仍是最前置门禁。
 
-### Task V2-CH3-SINGLE-T04：FD001–FD004 与 TEP 点预测单 seed
-
-- [ ] 每个 C-MAPSS 子集单独运行五 baseline 后运行本文模型；不得只运行 FD004 代表四个子集。
+- [ ] 每个外部协议先按 F 节完成本文模型的 validation-only 数据集特定调参（AI 依据数据集特性在登记的搜索空间内提议起点，逐项搜索、≤3 候选、tuning job 不跑 test），再按 baseline-first 顺序运行五 baseline + 本文模型。
+- [ ] 每个 C-MAPSS 子集单独调参、单独运行；不得只运行 FD004 代表四个子集，不得跨子集复制参数。
 - [ ] `tep_faulty` 先验证 faulty 标签和 simulation-run split，再按同一 baseline-first 顺序运行。
-- [ ] 生成六协议点预测汇总；若某协议数据 gate 失败，状态为 `blocked_data_gate`，禁止用其他协议结果替代。
+- [ ] 生成外部五协议点预测汇总；若某协议数据 gate 失败，状态为 `blocked_data_gate`，禁止用其他协议结果替代。
+
+### Task V2-CH3-SINGLE-T04：MetroPT 六条件完整矩阵
+
+- [ ] 在外部协议与中心条件均通过后，运行其余五个缺失条件的五 baseline + 本文模型，共 30 runs。
+- [ ] 检查每个条件的 mask bundle、split、normalization 和 evaluator SHA 一致；不同缺失机制不得复用错误 mask。
+- [ ] 汇总 MetroPT 36 runs + 外部五协议为第三章单 seed 表，标记 `formal_validated`，打 tag `v0.2-ch3-single-seed`。
 
 ## F. 数据集特定参数调整协议
 
-所有参数调整先在 AutoDL 有卡的 validation-only job 中完成，仍固定 seed=2026；调参 job 不执行 test，artifact 标记 `tuning_only`。每一轮先跑 baseline，再跑本文模型默认配方，之后按下表逐项搜索，最多保留三个候选，最后用完整 validation 集复核一次。
+所有参数调整先在 AutoDL 有卡的 validation-only job 中完成，仍固定 seed=2026；调参 job 不执行 test，artifact 标记 `tuning_only`。每一轮先跑 baseline，再跑本文模型默认配方，之后按下表逐项搜索，最多保留三个候选，最后用完整 validation 集复核一次。MetroPT 的结构配方已由 V2-LITE 冻结，本表 MetroPT 行仅作后续复核；FD001–FD004 与 TEP 的调参在 V2-CH3-SINGLE-T03 内、对应协议正式 run 之前完成。AI 可依据数据集特性提议搜索起点与候选取舍，但取舍只能消费 validation 指标，禁止读取 test 排名。
 
 | 数据集 | 第一轮固定值 | 第二轮搜索顺序 | 冻结条件 |
 |---|---|---|---|
@@ -877,7 +882,7 @@ FD001、FD002、FD003、FD004 是四个独立正式协议。MetroPT 使用 `rand
 
 ### Task V2-CH4-SINGLE-T03：六协议正式概率单 seed
 
-- [ ] 用 baseline-first 顺序在六协议运行最终 `kst_flow_v2`；每协议至少保留一个完整 baseline 参照和本文模型 artifact。
+- [ ] 用 baseline-first 顺序在六协议运行最终 `kst_flow_v2`；每协议至少保留一个完整 baseline 参照和本文模型 artifact。外部五协议（FD001–FD004、`tep_faulty`）先于 MetroPT 中心条件执行（沿用 2026-09-25 外部优先重排）。
 - [ ] 生成第四章表格所需指标和区间图数据，所有 run 标记 `formal_validated`。
 - [ ] 完成后打 tag `v0.3-ch4-single-seed`；未通过 go/no-go 的协议不得进入多 seed。
 
@@ -917,7 +922,7 @@ FD001、FD002、FD003、FD004 是四个独立正式协议。MetroPT 使用 `rand
 
 ### Task V2-CH5-SINGLE-T02：六协议风险单 seed
 
-- [ ] MetroPT、FD001、FD002、FD003、FD004、TEP faulty 分别运行最终模型和登记的风险 baseline。
+- [ ] FD001、FD002、FD003、FD004、TEP faulty 先行，MetroPT 殿后（沿用 2026-09-25 外部优先重排）；分别运行最终模型和登记的风险 baseline。
 - [ ] 每协议保存 risk rule、threshold、calibration、score/label/timestamp/unit 文件；不得合并不同协议的阈值。
 - [ ] 生成第五章单 seed 表和风险曲线数据，所有数字可追溯到 run_id、seed、checkpoint、code/protocol SHA。
 
