@@ -1,6 +1,6 @@
 experiment_id: pilot_metropt3_common
 dataset: metropt3_chrono_502030_v2
-model: kst_light
+model: kst_light_v2
 seed: 2026
 split_seed: 2026
 mask_seed: 2026

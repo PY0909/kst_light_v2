@@ -4,6 +4,8 @@
 
 本规划以 kst_light_v2 仓库根为唯一主工程（下文仓库内路径均为相对路径），把旧工程 `new_work` 中可复用的源码与原始数据迁移进来，并在统一协议、统一 evaluator、统一环境下重新产生全部正式对比结果。正式结果一律不允许从旧工程搬运。
 
+> **计划版本说明（2026-09-24）：** 本文件前面的 V2-P00～V2-X0 条目保留为已执行工作的审计记录；文末新增的 **“V2-ROADMAP-2026-09-24（权威后续路线）”** 覆盖旧的未完成后续阶段。后续执行只按该权威路线推进，旧条目不得与新路线混合勾选。每个新 Task 完成后立即在权威路线中更新 checkbox，并记录命令、run_id、commit 与产物路径。
+
 ---
 
 ## 1. 总体结论
@@ -311,7 +313,7 @@ __pycache__/
 
 ### V2-X0：FD004 / TEP 单 seed 接线 pilot（V2-P01 前置）
 
-- [ ] **Phase V2-X0 完成：两个外部数据集在 v2 冻结环境下端到端可跑，模型可学习性信号已取得**
+**Phase 状态（2026-09-25）：** 原 T03～T06（AutoDL 预检、FD004/TEP 全量单 seed pilot、归档与配方反馈）已删除，其职责由权威路线 V2-ROADMAP-2026-09-24 的 C0 节（V2-X0-CLOSE-T01～T03）承担：收尾深度降为单 batch CUDA smoke，全量单 seed 不再是进入 V2-LITE 的前置条件。本段只保留 T01、T02 审计记录，不再设独立 Phase 完成门禁。
 
 **定位与边界：** 本 Phase 不是正式外部验证（那仍是 V2-P06 的职责），而是在投入矩阵建设（V2-P01）之前，先确认 FD004/TEP 两个通道在 v2 冻结环境下端到端可跑、`kst_light_v2` 可学习，并取得训练耗时/资源信号。结论权限与 MetroPT H2 pilot 相同：仅接线与模型选择证据，`formal_comparison_eligible: false`，不得进入论文正式表格。
 
@@ -326,7 +328,7 @@ __pycache__/
 - 修改：`code/tests/ch3/test_portability_policy.py`（删除 `code/run_experiment.py` 的 4 条 allowlist 豁免）
 
 - [x] 以 portability 测试为失败测试驱动：先删除 4 条 allowlist 豁免，运行 `PYTHONPATH=code python -m pytest code/tests/ch3/test_portability_policy.py -q` 确认转红。
-- [x] 将 `--data-root`/`--output-dir` 默认值从 `/root/autodl-tmp/...` 改为 None，经 `resolve_runtime_paths` 解析（`KST_DATA_ROOT`/`KST_RESULT_ROOT` → 仓库相对 `dataset/`、`results/` 默认）。
+- [x] 将 `--data-root`/`--output-dir` 默认值从机器绝对路径改为 None，经 `resolve_runtime_paths` 解析（`KST_DATA_ROOT`/`KST_RESULT_ROOT` → 仓库相对 `dataset/`、`results/` 默认）。
 - [x] 重跑 portability 测试确认转绿；运行 `python code/run_experiment.py --help` 确认可在仓库根正常解析。
 
 **验收：** `code/run_experiment.py` 零机器路径命中；portability 全绿；全量 pytest 无回归。
@@ -343,48 +345,6 @@ __pycache__/
 - [x] `configs/ch3/metropt_main.yaml` 的修正仍归 V2-P01-T01，本 Task 不动。
 
 **验收：** external 配置不再指向旧模型 ID；后续任何人都无法用这两个配置静默跑出旧模型。
-
-#### Task V2-X0-T03：最小 AutoDL 预检（通过后 P03 视为完成）
-
-- [ ] **Task V2-X0-T03 完成：远端 checkout 干净、SHA 与本机一致、dry-run 通过**
-
-- [ ] 执行 V2-P03-T01 全部步骤（checkout `v0.1-freeze`、`git status --porcelain` 为空、设置三个 `KST_*` 环境变量、MetroPT/CMAPSS/TEP 数据 SHA 核验、Conda 环境与 `environment.yml` 一致、dry-run、跨机 SHA 比对）。
-- [ ] 完成后在本文件将 V2-P03 的 Task V2-P03-T01 与 Phase V2-P03 一并勾选，并注明"由 V2-X0-T03 代为完成"。
-
-**验收：** AutoDL 具备与 v0.1-freeze 一致的代码、数据与环境身份；CMAPSSData 与 dataverse_files 已随数据迁移在位。
-
-#### Task V2-X0-T04：FD004 单 seed pilot
-
-- [ ] **Task V2-X0-T04 完成：FD004 可学习性门禁 + 全量单 seed run 完成**
-
-**文件：**
-- 计划生成：`results/pilot/fd004/`（sanity）与 run 产物目录（记录实际位置到 progress）
-
-- [ ] 本机 CPU 快速门禁：`PYTHONPATH=code python code/diagnostics/fd004_learnability_sanity.py --rate 0.3`（内置约 6 epochs）；不可学习则停下分析，不带病上 GPU。
-- [ ] AutoDL 全量单 seed（按 `fd004_external.yaml` 显式传全参，禁止依赖 CLI 默认）：`--dataset cmapss_fd004 --model kst_light_v2 --seed 2026 --split-seed 2026 --missing-mode mixed --missing-rate 0.3 --history-len 50 --pred-len 10 --stride 1 --epochs 80 --batch-size 128 --hidden-dim 64` 及该配置其余字段。
-- [ ] 记录到 progress.md：learnability 结论、test MAE/RMSE、训练/推理耗时、峰值显存、实际配方（含 CLI 默认补全的字段如 lr/weight_decay/scheduler）。
-
-**验收：** 产生 1 个 FD004 × `kst_light_v2` 单 seed run；耗时与可学习性信号已登记，可支撑 V2-P01 配方决策与 GPU 预算估算。
-
-#### Task V2-X0-T05：TEP 接线 pilot（fault-free 限定）
-
-- [ ] **Task V2-X0-T05 完成：TEP 通道接线验证完成，边界已声明**
-
-- [ ] 声明边界（写入 progress.md）：当前 `_create_tep` 仅支持 fault-free 数据、风险标签全负类，故本 pilot 不评估任何风险指标，结论仅限"通道可跑 + 点预测可学习性观察"；faulty 集成仍归 V2-P06，届时必须接入 faulty runs 并按 simulation run 隔离。
-- [ ] AutoDL 单 seed：`--dataset tep --model kst_light_v2 --seed 2026 --missing-mode mixed --missing-rate 0.3 --history-len 96 --pred-len 24 --stride 12 --epochs 50 --batch-size 128 --hidden-dim 64` 及该配置其余字段。
-- [ ] 若全量 50 epochs 时长不可接受，允许降级为短 epoch sanity（如 10–15 epochs）并在 progress.md 记录降级原因与实际 epoch 数。
-
-**验收：** TEP 通道产生 ≥1 个 run（或明确记录的降级 sanity）；无任何风险指标被输出或引用。
-
-#### Task V2-X0-T06：结果归档与配方反馈
-
-- [ ] **Task V2-X0-T06 完成：结论权限已标注，配方建议已反馈 P01**
-
-- [ ] 两个数据集的 run 产物统一落 `results/`（runtime paths 解析），不与 MetroPT H2 结果混放。
-- [ ] progress.md 登记：`formal_comparison_eligible: false`、run_id 清单、发现的问题清单（适配缺陷、数据异常、超时项）。
-- [ ] 给 V2-P01 的书面建议：统一配方是否需要为 FD004/TEP 调整 epochs/lr；若需要，在 V2-P01-T01 建矩阵时一并固定。
-
-**验收：** V2-P01 启动时无需重新探索两个外部数据集的基本盘。
 
 ---
 
@@ -665,3 +625,343 @@ V2-P00 迁移与 Git 冻结（.gitignore -> 清理 -> compare_code -> 数据+dat
 - 不在 Phase 门禁未通过时抢跑后续 Phase；不在论文中使用 `not_implemented` 模型的对比结论。
 - 不用 test 集做任何选择（模型、阈值、超参数、calibrator）；不手工修改 `results/` 内的任何程序产物。
 - 不在配置或代码中写死机器路径、主机、端口与账号。
+
+---
+
+# V2-ROADMAP-2026-09-24（权威后续路线）
+
+**目标：** 在 `kst_light_v2` 主工程内，以同一数据协议、同一缺失 mask、同一 evaluator 和同一环境身份，依次完成第三章点预测、第四章概率预测、第五章风险评估的代码改造、单 seed 对比、validation-only 调参和多 seed 正式结果。
+
+**架构：** 第三章冻结 `kst_light_v2`（异步规整表示编码器 + 点预测头）；第四章复用同一表示并接入 `kst_flow_v2`（ProFITiFlowHead，NLL/采样/区间）；第五章在概率模型上增加 `kst_probflow_v2`（QuantileHead、RiskHead、数据集风险协议和 validation-only 校准）。每一章先跑对比模型，再只使用 validation 选择本文模型配置，test 只在冻结后评估一次。
+
+**新旧模型 ID 映射（2026-09-25）：** 权威路线下第四章概率主模型为 `kst_flow_v2`，第五章为 `kst_probflow_v2`（待新建，完成注册前 registry 不得标记可用）。旧 ID `kst_probflow`（registry 仍含实现、`configs/pilot/` 概率矩阵仍引用）仅作历史 pilot 审计，不得再作为第四/五章主模型进入新矩阵或正式结果。
+
+**技术栈：** Python 3.12、PyTorch、Conda 环境 `kst_probflow`、pytest、YAML 配置、JSON manifest；路径由 `KST_PROJECT_ROOT`、`KST_DATA_ROOT`、`KST_RESULT_ROOT` 或 CLI 解析，禁止写死本机/AutoDL 路径。
+
+**权威执行顺序：** `V2-X0` 外部接线收尾 → `V2-LITE` 点模型轻量化 → `V2-CH3-CODE` → `V2-CH3-SINGLE` → `V2-CH4-CODE` → `V2-CH4-SINGLE` → `V2-CH5-CODE` → `V2-CH5-SINGLE` → `V2-MULTI` → `V2-FREEZE`。旧计划中的 V2-P01～V2-P09 只作历史索引，不得作为另一条并行路线。
+
+**legacy 配置口径（2026-09-25）：** `configs/pilot/` 为旧 pilot 基础设施，仅供历史审计，权威路线的新矩阵一律落在 `configs/ch3/`、`configs/ch4/`、`configs/ch5/`；其中残留的旧模型 ID 已修正为 `kst_light_v2`，防止误跑旧模型。
+
+## A. 不可改变的科学合同
+
+### A.1 数据协议与章节归属
+
+| protocol_id | 数据集 | 章节用途 | 初始窗口 `(H,P,stride)` | 划分与风险边界 |
+|---|---|---|---|---|
+| `metropt3_chrono_502030_v2` | MetroPT-3 | 第三、四、五章主验证 | `(168,24,60)` | timestamp-group 50/20/30；segment 内窗口；train-only 归一化 |
+| `cmapss_fd001` | C-MAPSS FD001 | 第三、四、五章外部验证 | `(50,10,1)` | engine 不跨 split；forecast-origin RUL 标签 |
+| `cmapss_fd002` | C-MAPSS FD002 | 第三、四、五章外部验证 | `(50,10,1)` | 同 FD001 |
+| `cmapss_fd003` | C-MAPSS FD003 | 第三、四、五章外部验证 | `(50,10,1)` | 同 FD001 |
+| `cmapss_fd004` | C-MAPSS FD004 | 第三、四、五章外部验证 | `(50,10,1)` | 同 FD001；不得把 FD004 代表四个子集 |
+| `tep_faulty` | TEP faulty | 第三、四、五章外部验证 | `(96,24,12)` | simulation run 不跨 split；fault-free 只能作辅助，不可顶替 faulty |
+
+FD001、FD002、FD003、FD004 是四个独立正式协议。MetroPT 使用 `random@0.00/0.30/0.70`、`low_rate@0.30`、`block_offline@0.30`、`mixed@0.30` 六条件；其他协议先使用中心条件 `mixed@0.30`，若原始协议不支持人工 mask，必须在 manifest 中标记 `missing_mode=not_applicable`，不能静默改成另一种 mask。
+
+### A.2 随机性、指标和选择规则
+
+```text
+单 seed：seed=2026，split_seed=2026，mask_seed=2026
+多 seed：seed ∈ {2026, 2027, 2028}
+第三章主指标：validation MAE；辅助 RMSE、训练时间、推理时间、参数量
+第四章主指标：validation CRPS；辅助 NLL、MAE、RMSE、PICP、MPIW
+第五章主指标：预先登记的风险 AUPRC/F1；辅助 AUROC、Brier、ECE、Precision、Recall
+```
+
+对比模型必须先于本文模型完成；所有模型复用相同 split、归一化统计量、人工 mask、窗口、seed、评价分母和 test 次数。调参只读取 validation，禁止查看 test 指标决定模型、参数、阈值或校准器。单类别 test 风险指标写 `null`，不得填 0。
+
+### A.3 证据等级与环境切换
+
+| 环境 | 允许操作 | 禁止操作 | 进入下一环境条件 |
+|---|---|---|---|
+| 本机 Conda | 全量 pytest、dry-run、协议构建、CPU 单 batch/≤1 epoch smoke、manifest/schema 检查、validation-only 小样本接线 | 正式多 epoch 训练、正式 test、使用 venv 产物 | 代码测试通过、工作区 clean、commit SHA 已冻结 |
+| AutoDL 无卡 | checkout/数据同步、preflight、dry-run、配置展开、协议/数据 gate、CPU 低成本 smoke | GPU 训练、正式指标结论 | local/remote identity 段匹配、GPU 机器可用 |
+| AutoDL 有卡 | CUDA 单 batch smoke、baseline-first 正式训练、validation 调参、冻结后 test、多 seed | 未通过 preflight 或 dirty checkout 时训练 | run manifest 完整、validator 通过并下载结果 |
+
+每次改代码或配置都必须回到本机 Conda 测试并重新 commit；旧 venv 产生物标记为 `legacy_venv_artifact`，不得参与任何汇总。GPU 训练前必须重新生成 local 和 AutoDL preflight，旧 commit 的报告一律 stale。
+
+## B. 代码改造总表
+
+| 代码边界 | 目标 |
+|---|---|
+| `code/kaf_profiti/industrial/metropt.py`、`cmapss.py`、`tep.py` | 六协议的 split、segment、window、真实时间、目标列、风险标签 |
+| `code/kaf_profiti/experiments/datasets.py` | 统一 `ProtocolDataset` 接口，显式传递 `split_seed`、`mask_seed` 和 train-only normalization |
+| `code/kaf_profiti/models/kst_light_v2.py` | 第三章点预测编码器/decoder，记录可配置 hidden/layer/kernel/patch/FLA 参数 |
+| `code/kaf_profiti/models/kst_flow_v2.py` | 第四章 flow head、NLL、sampling、quantile/interval 计算，固定 point 口径 |
+| `code/kaf_profiti/models/kst_probflow_v2.py` | 第五章 probability + quantile + risk 输出，保存风险 score 与标签 |
+| `code/kaf_profiti/experiments/probabilistic_adapter.py` | 统一不同 baseline 的 point/distribution/sample 接口，消除 `distribution()` 假设 |
+| `code/kaf_profiti/experiments/evaluator.py`、`metrics.py`、`accumulators.py` | 三章统一 metric、分母、finite 检查、test-evaluation 计数 |
+| `code/kaf_profiti/industrial/risk_protocol.py` | MetroPT、C-MAPSS、TEP 的风险规则、forecast-origin 标签和阈值来源 |
+| `code/run_experiment.py` | CLI/env/config 路径解析、split_seed 透传、chapter/model contract、resume 身份 |
+| `code/evaluate_risk_calibration.py` | validation-only Platt/isotonic/calibration artifact 和一次性 test 重评估 |
+| `configs/ch3/`、`configs/ch4/`、`configs/ch5/` | 六协议、模型矩阵、搜索空间和 recipe version；无机器绝对路径 |
+| `code/tests/ch3/`、`code/tests/ch4/`、`code/tests/ch5/` | 协议、adapter、指标、泄漏、身份和端到端 smoke 测试 |
+
+可从 `new_work` 参考或抽取的模块：`QuantileHead`、`RiskHead`、`evaluator.py`、`metrics.py`、`accumulators.py`、`evaluate_risk_calibration.py` 和 `pilot_runner.py` 的 flow 接线思路。禁止直接覆盖 v2 的完整 encoder、风险协议或带硬编码路径的 `run_experiment.py`；每次迁移都要补 v2 测试并重新计算 code fingerprint。
+
+## C0. V2-X0：外部数据接线收尾（历史已完成项的后续动作）
+
+现有旧条目中 `V2-X0-T01`、`V2-X0-T02` 已完成的 checkbox 保留不改（原 `V2-X0-T03`～`T06` 已于 2026-09-25 删除，职责由本节三项承担）；下面三项是进入 V2-LITE 前必须完成的收尾，不把接线 pilot 当作正式论文结果。
+
+### Task V2-X0-CLOSE-T01：Conda 与跨机身份预检
+
+- [ ] 在本机 `kst_probflow` Conda 环境运行全量 pytest、FD004/TEP dry-run、配置 schema 和 portability 检查；确认 `git status --porcelain` 为空后提交。
+- [ ] AutoDL 无卡 checkout 同一 commit，设置 `KST_PROJECT_ROOT`、`KST_DATA_ROOT`、`KST_RESULT_ROOT`，生成 local/AutoDL preflight；比较 commit、code/data/matrix/protocol SHA，环境名和绝对路径按规则忽略。
+- [ ] 任何旧 venv 或旧 commit 的 preflight 标记 stale 并重建；未通过身份比较不得开 GPU 训练。
+
+### Task V2-X0-CLOSE-T02：FD004 与 TEP 接线 smoke
+
+- [ ] AutoDL 有卡只运行 `kst_light_v2` 单 batch CUDA smoke，验证 FD004 和 `tep_faulty` 的通道、窗口、loss finite、参数更新和 `test_metric_count=0`。
+- [ ] 若 TEP faulty 数据不可用，写入 `blocked_data_gate` 和原因，禁止用 fault-free 结果代替；FD004 smoke 不能代表 FD001–FD003。
+- [ ] 结果标记 `interface_only` 或 `smoke_passed`，不进入第三章、第四章或第五章表格。
+
+### Task V2-X0-CLOSE-T03：归档与入口门禁
+
+- [ ] 将旧 venv 结果、旧 preflight、非本协议 pilot 移到 `archive/` 或保留在 ignored result，并写 `formal_comparison_eligible=false`；不修改 metrics JSON。
+- [ ] 验证六协议名称、窗口和 model_id 已在配置中可展开；完成后才进入 V2-LITE-T01。
+
+## C. V2-LITE：点模型轻量化与配方冻结
+
+### Task V2-LITE-T01：固定训练管线基线
+
+**文件：** `code/run_experiment.py`、`code/kaf_profiti/experiments/manifest.py`、`code/tests/ch3/test_training_profile.py`。
+
+- [ ] 在 Conda 环境完成 `num_workers=4`、`pin_memory=true`、`persistent_workers=true`、`non_blocking=true` 的 CPU 接口检查。
+- [ ] 为 manifest 写入 `epoch_seconds`、`train_seconds`、`peak_gpu_memory_mb`、`num_workers`、`amp_dtype` 和 `parameter_count`。
+- [ ] 本机执行 `python -m pytest code/tests/ch3/test_training_profile.py -q`，再执行 ≤1 epoch CPU smoke；产物标记 `smoke_passed`，不写入正式表。
+- [ ] AutoDL 有卡只运行一次 CUDA 单 batch，确认 loss finite、参数发生更新、`test_metric_count=0`；下载日志和 manifest。
+- [ ] 固定管线 recipe 为 `lite_pipeline_v1`，提交独立 commit。
+
+### Task V2-LITE-T02：单因素结构筛选（validation-only）
+
+**文件：** `code/kaf_profiti/models/kst_light_v2.py`、`configs/ch3/lite_search.yaml`、`code/tests/ch3/test_lite_config.py`。
+
+- [ ] 固定 MetroPT 中心条件、seed=2026、split/mask SHA、batch 和 epoch；只改变一个因素，依次运行 A0、`preconv_dim=8`、`kernel_count=3`、`hidden_dim=48`、`hidden_dim=32`、`n_layers=1`、`patch_lens=[12,24]`。
+- [ ] 每个变体只用 validation MAE/RMSE、训练时间和参数量排序；test 计数必须为 0。
+- [ ] 为 `encoder_mlp_ratio`、`cross_variable_rank`、`cross_variable_mlp_ratio` 增加显式 config/manifest 字段，禁止用未记录的内部常量产生正式候选。
+- [ ] 保留每个失败或退化 artifact；选择不超过三个 Pareto 候选进入 T03，接受条件为参数量至少下降 25%、训练时间至少下降 20%，validation MAE 增幅不超过 2%。
+
+### Task V2-LITE-T03：FLA-lite 变体
+
+**文件：** `code/kaf_profiti/models/kst_light_v2.py`、`configs/ch3/lite_search.yaml`、`code/tests/ch3/test_fla_lite.py`。
+
+- [ ] 在 T02 最优候选上单独运行 F0 `(rank=64, mlp_ratio=4)`、F1 `(32,4)`、F2 `(64,2)`、F3 `(32,2)`。
+- [ ] 检查参数量、epoch 时间、finite loss 和 validation MAE；不使用 test 结果裁决。
+- [ ] 若 FLA-lite 退化，回退到上一 Pareto 候选并在 manifest 写明 `fallback_reason`；不得覆盖历史 artifact。
+
+### Task V2-LITE-T04：轻量跨变量 Mixer 对照
+
+**文件：** 新建 `code/kaf_profiti/models/light_sensor_mixer.py`，修改 `registry.py`，新增 `code/tests/ch3/test_sensor_mixer.py`。
+
+- [ ] 保留 `M_obs`、freshness、recency/block 和层次 patch 输入，仅替换跨变量模块为共享投影 + gated residual mixer。
+- [ ] 注册独立 model_id，不覆盖 `kst_light_v2`；与 FLA-lite 使用同一 protocol/mask/seed/recipe。
+- [ ] 仅在 validation MAE 不超过冻结基线 2% 且效率达到 T02 接受条件时保留，否则标记 `rejected_validation_only`。
+
+### Task V2-LITE-T05：冻结第三章编码器配方
+
+**文件：** `configs/ch3/metropt_main.yaml`、`configs/ch3/external_*.yaml`、`plan/progress.md`。
+
+- [ ] 用 validation-only 证据选出唯一 `kst_light_v2` 配方，锁定所有六协议的初始窗口和 recipe version。
+- [ ] 在 MetroPT 中心条件完成一次完整单 seed 复核，确认短训练排序没有反转；test 仅在第三章正式单 seed 阶段执行。
+- [ ] 更新配置、README/进度记录和 tag `v0.2-lite-freeze`；无卡环境重新生成 preflight。
+
+## D. V2-CH3-CODE：第三章协议与点预测代码
+
+### Task V2-CH3-CODE-T01：统一六协议数据入口
+
+**文件：** `code/kaf_profiti/experiments/datasets.py`、`industrial/metropt.py`、`industrial/cmapss.py`、`industrial/tep.py`、对应测试。
+
+- [ ] 统一返回 `Y_q`、`context`、`T_obs`、`T_q`、`M_obs`、`unit_id`、`window_id`、`risk_label`；窗口不得跨 segment/engine/simulation run。
+- [ ] 透传 `split_seed=2026`、`mask_seed=2026`；normalization 只从 train 统计，保存 SHA 和列名。
+- [ ] 为 FD001–FD004 分别生成 split/window SHA；为 TEP 新增 `tep_faulty`，缺 faulty 时显式失败而不是 fallback 到 fault-free。
+- [ ] 测试重复 timestamp、gap、unit 边界、列维度、mask 重放和 train-only normalization。
+
+### Task V2-CH3-CODE-T02：修复训练入口与点预测契约
+
+**文件：** `code/run_experiment.py`、`code/kaf_profiti/experiments/registry.py`、`code/kaf_profiti/experiments/evaluator.py`。
+
+- [ ] 增加 `chapter=ch3` contract：模型必须提供 `predict_point()` 和点预测 loss；统一 device、batch、checkpoint、test count。
+- [ ] 修复 `create_protocol_datasets()` 的 `split_seed` 传递和 CLI/env/config 优先级；运行时只解析环境变量或相对默认值。
+- [ ] manifest 写入 `dataset/protocol/mask/normalization/evaluator/code/matrix` SHA、命令、环境和 checkpoint SHA。
+- [ ] 测试错误模型能力、路径可移植性、resume 身份和 test 只调用一次。
+
+### Task V2-CH3-CODE-T03：第三章矩阵和 validator
+
+**文件：** `configs/ch3/point_matrix.yaml`、`code/run_pilot_matrix.py`、`code/validate_results.py`、`code/tests/ch3/test_point_matrix.py`。
+
+- [ ] 矩阵模型固定为 `li_tcn`、`ff_gru`、`masked_tcn`、`gru_d`、`ode_rnn`、`kst_light_v2`；所有 recipe 字段显式写出。
+- [ ] validator 检查 36 个 MetroPT run、4 个 FD 协议和 TEP 的 key、fairness、finite、test count、参数量和时间字段。
+- [ ] dry-run 输出完整 key 集，真实运行前不生成 checkpoint/prediction。
+
+## E. V2-CH3-SINGLE：第三章单 seed 正式实验
+
+### Task V2-CH3-SINGLE-T01：中心条件 baseline-first
+
+- [ ] AutoDL 无卡完成 checkout、data gate、dry-run 和 local/remote identity 比对。
+- [ ] AutoDL 有卡先运行六协议中的 MetroPT `mixed@0.30` 五个 baseline；每个 run 使用 seed/split/mask=2026。
+- [ ] validator 必须得到 `completed=5`、`nonfinite=0`、`fairness_mismatch=0`、`test_metric_count=1`；失败 run 保留并单独重跑。
+
+### Task V2-CH3-SINGLE-T02：中心条件本文模型与 go/no-go
+
+- [ ] 在同一中心条件和同一 mask 下运行 `kst_light_v2`，只能使用 T02/T03 validation 配方。
+- [ ] 记录 validation MAE、test MAE/RMSE、训练/推理时间和参数量；生成 `ch3_central_go_no_go.json`。
+- [ ] 只有本文模型在预定义主指标达到 baseline 参照且所有公平性门禁通过，才允许扩展其余条件。
+
+### Task V2-CH3-SINGLE-T03：MetroPT 六条件完整矩阵
+
+- [ ] 在中心条件通过后运行其余五个缺失条件的五 baseline + 本文模型，共 30 runs。
+- [ ] 检查每个条件的 mask bundle、split、normalization 和 evaluator SHA 一致；不同缺失机制不得复用错误 mask。
+- [ ] 汇总 36 runs 为第三章单 seed表，标记 `formal_validated`，打 tag `v0.2-ch3-single-seed`。
+
+### Task V2-CH3-SINGLE-T04：FD001–FD004 与 TEP 点预测单 seed
+
+- [ ] 每个 C-MAPSS 子集单独运行五 baseline 后运行本文模型；不得只运行 FD004 代表四个子集。
+- [ ] `tep_faulty` 先验证 faulty 标签和 simulation-run split，再按同一 baseline-first 顺序运行。
+- [ ] 生成六协议点预测汇总；若某协议数据 gate 失败，状态为 `blocked_data_gate`，禁止用其他协议结果替代。
+
+## F. 数据集特定参数调整协议
+
+所有参数调整先在 AutoDL 有卡的 validation-only job 中完成，仍固定 seed=2026；调参 job 不执行 test，artifact 标记 `tuning_only`。每一轮先跑 baseline，再跑本文模型默认配方，之后按下表逐项搜索，最多保留三个候选，最后用完整 validation 集复核一次。
+
+| 数据集 | 第一轮固定值 | 第二轮搜索顺序 | 冻结条件 |
+|---|---|---|---|
+| MetroPT | `H/P/stride=168/24/60`，hidden=64，layers=2，patch=`12,24,48`，lr=`2e-4` | hidden `{32,48,64}` → layers `{1,2}` → patch `{12,24},{12,24,48}` → lr `{1e-4,2e-4,3e-4}` → FLA rank `{32,64}` | validation MAE 与效率 Pareto；不看 test |
+| FD001–FD004 | `50/10/1`，hidden=32，layers=1，patch=`5,10,20`，batch=128 | hidden `{32,48,64}` → lr `{1e-4,2e-4}` → weight decay `{1e-5,1e-4}` → patch `{5,10},{5,10,20}`；FD002/004 可增加 layers=2 复核 | 每个 FD 独立选择；不能把 FD004 参数复制成四个结论 |
+| TEP faulty | `96/24/12`，hidden=64，layers=2，patch=`12,24,48`，batch=64 | hidden `{48,64,96}` → layers `{1,2}` → lr `{1e-4,2e-4,3e-4}` → patch `{12,24},{12,24,48}`；检查 simulation-run batch 平衡 | validation MAE/RMSE finite 且故障段不被 mask 泄漏 |
+
+调参停止规则：连续两轮 validation 主指标没有改善且效率不改善即停止；不得因为 test 排名再次打开搜索空间。每个数据集保存 `tuning_manifest.json`，记录候选、选择指标、未使用的 test 字段和最终 recipe SHA。
+
+## G. V2-CH4-CODE：第四章概率模型
+
+### Task V2-CH4-CODE-T01：概率 adapter 与统一 head
+
+**文件：** 新建 `code/kaf_profiti/experiments/probabilistic_adapter.py`，修改 `code/kaf_profiti/models/kst_flow_v2.py`、`code/kaf_profiti/experiments/evaluator.py`。
+
+- [ ] 统一 baseline 输出为 `point_mean`、`distribution/sample`、`quantiles`；适配没有概率输出的模型时明确使用 Gaussian head，并在 manifest 写 `head_type`。
+- [ ] 固定 `kst_flow_v2.predict_point()` 与 sample mean 的口径，记录 flow 的 `nll`、samples、quantile levels、interval coverage。
+- [ ] 统一计算 MAE、RMSE、NLL、CRPS、PICP、MPIW、时间和参数量，并测试 finite、sample shape 和区间单调性。
+
+### Task V2-CH4-CODE-T02：概率矩阵与模型注册
+
+**文件：** `configs/ch4/probabilistic_matrix.yaml`、`registry.py`、`code/tests/ch4/test_probability_contract.py`。
+
+- [ ] 矩阵固定为 `tcn_gaussian`、`patchtst_gaussian`、`gru_d_gaussian`、`ode_rnn_gaussian`、`grafiti_gaussian`、`profiti`、`kst_flow_v2`；KAFNet 系列只有完成 adapter 后才能加入。
+- [ ] 所有模型使用同一中心条件、窗口、mask、seed 和 validation checkpoint 选择指标（CRPS 主、NLL 辅）。
+- [ ] dry-run 验证 key、matrix SHA、head type 和 recipe 字段；未实现模型必须报错或显式 skip，不得静默标完成。
+
+### Task V2-CH4-CODE-T03：第四章泄漏与 artifact 门禁
+
+- [ ] 测试 test label 不进入训练、early stopping、flow temperature、区间校准或模型选择。
+- [ ] prediction artifact 保存 forecast/query 时间、unit、samples/quantiles、point mean、protocol SHA 和 checkpoint SHA。
+- [ ] validator 检查同一 run 的 point/probabilistic 指标来自同一个 checkpoint，test 评估计数为 1。
+
+### Task V2-CH4-CODE-T04：KAFNet/ProFITi 适配决策
+
+**文件：** `compare_code/probabilistic_baselines/`、`code/kaf_profiti/experiments/probabilistic_adapter.py`、`configs/ch4/probabilistic_matrix.yaml`、`code/tests/ch4/test_baseline_adapters.py`。
+
+- [ ] 逐一核对 `kafnet`、`kafnet_gaussian`、`kaf_profiti_marginal`、`kafnet_profiti_joint` 的输入、缺失 mask、输出分布和训练目标；为能满足统一协议的模型写 adapter 和 smoke 测试。
+- [ ] adapter 必须显式声明 `implemented`、`head_type`、`supports_sampling` 和 `selection_metric`；未通过 finite、shape 或公平性测试的模型保持 `not_implemented`，不得出现在正式结果表。
+- [ ] 若适配完成，将模型加入第四章 baseline-first 矩阵并重新计算 matrix SHA；若未完成，在 `plan/progress.md` 记录排除理由，不用旧工程结果替代。
+
+## H. V2-CH4-SINGLE：第四章单 seed 与本文模型调优
+
+### Task V2-CH4-SINGLE-T01：baseline-first 中心条件
+
+- [ ] AutoDL 有卡先运行六个已实现概率 baseline；每个 baseline 完成后立即运行 validator，失败不阻断其他模型。
+- [ ] 仅汇总 validation CRPS/NLL 和 test 一次性指标；生成 baseline reference manifest。
+
+### Task V2-CH4-SINGLE-T02：kst_flow_v2 validation-only 调参
+
+- [ ] 复用第三章冻结 encoder，不改变数据协议；搜索 flow rank `{16,32,64}`、head hidden `{32,64}`、learning rate `{1e-4,2e-4}`、sample count `{50,100}`。
+- [ ] 先按 validation CRPS，再按 NLL 和效率保留最多三个候选；禁止读取 test CRPS 选参数。
+- [ ] 对 MetroPT、每个 FD 子集和 TEP 分别登记最佳 recipe；数据集间不得未经验证复制参数。
+
+### Task V2-CH4-SINGLE-T03：六协议正式概率单 seed
+
+- [ ] 用 baseline-first 顺序在六协议运行最终 `kst_flow_v2`；每协议至少保留一个完整 baseline 参照和本文模型 artifact。
+- [ ] 生成第四章表格所需指标和区间图数据，所有 run 标记 `formal_validated`。
+- [ ] 完成后打 tag `v0.3-ch4-single-seed`；未通过 go/no-go 的协议不得进入多 seed。
+
+## I. V2-CH5-CODE：风险、校准与故障协议
+
+### Task V2-CH5-CODE-T01：数据集风险协议
+
+**文件：** 新建 `code/kaf_profiti/industrial/risk_protocol.py`、`industrial/tep.py`，修改 `industrial/cmapss.py`、`industrial/metropt.py`。
+
+- [ ] MetroPT 使用 query timestamp 与 fault interval 交集形成风险标签；阈值和 interval 来源写入 manifest。
+- [ ] C-MAPSS 使用 forecast-origin RUL 规则生成风险标签，记录 engine、origin、RUL threshold；不使用未来窗口标签。
+- [ ] TEP 使用 faulty simulation/run 的故障区间或已登记 fault class；每个 split 显式记录正负类数量。
+- [ ] 测试标签时间边界、split 隔离、单类别输出 null 和风险标签不可被 mask 生成器改写。
+
+### Task V2-CH5-CODE-T02：kst_probflow_v2 与风险 artifact
+
+**文件：** 新建 `code/kaf_profiti/models/kst_probflow_v2.py`，修改 `registry.py`、`evaluator.py`。
+
+- [ ] 在 `kst_flow_v2` 上接入 `QuantileHead`、`RiskHead`；输出 point、samples、quantiles、risk score、risk label、timestamp 和 unit/run identity。
+- [ ] 参数化 risk loss 权重、quantile levels、阈值来源；所有值写入 config 和 manifest。
+- [ ] 检查 risk score 与预测样本来自同一 checkpoint，避免 evaluator 用另一模型的 prediction。
+
+### Task V2-CH5-CODE-T03：validation-only 校准
+
+**文件：** `code/evaluate_risk_calibration.py`、`code/tests/ch5/test_calibration_protocol.py`。
+
+- [ ] 在 validation 上拟合 Platt 或 isotonic 校准器和 q=0.95 阈值；保存 calibration parameters、输入范围、run_id、protocol SHA。
+- [ ] test 只调用一次校准后的预测；校准器不可访问 test label，test 目录不写回训练配置。
+- [ ] validator 计算 AUROC、AUPRC、Brier、ECE、Precision、Recall、F1；单类别返回 null 并给出原因。
+
+## J. V2-CH5-SINGLE：第五章六协议单 seed
+
+### Task V2-CH5-SINGLE-T01：risk baseline 与中心条件
+
+- [ ] 先用第四章冻结的 baseline 概率输出生成风险 score，再运行 `kst_probflow_v2`，避免只比较本文模型而无法解释增益。
+- [ ] 中心条件完成 validation-only calibration，验证 risk artifact、标签正负类和 test count。
+
+### Task V2-CH5-SINGLE-T02：六协议风险单 seed
+
+- [ ] MetroPT、FD001、FD002、FD003、FD004、TEP faulty 分别运行最终模型和登记的风险 baseline。
+- [ ] 每协议保存 risk rule、threshold、calibration、score/label/timestamp/unit 文件；不得合并不同协议的阈值。
+- [ ] 生成第五章单 seed 表和风险曲线数据，所有数字可追溯到 run_id、seed、checkpoint、code/protocol SHA。
+
+## K. V2-MULTI：多 seed 正式实验
+
+### Task V2-MULTI-T01：多 seed 前置门禁
+
+- [ ] 六协议第三章、第四章、第五章单 seed 均达到 go/no-go；所有单 seed 结果为 `formal_validated`。
+- [ ] 代码、数据、矩阵、协议和 evaluator SHA 冻结；创建 `v2-multiseed-freeze` commit/tag。
+- [ ] AutoDL 为每个 seed 建立独立 run_id；禁止复用 checkpoint、mask 或 validation 选择结果。
+
+### Task V2-MULTI-T02：三 seed 运行与统计
+
+- [ ] 对 seed `{2026,2027,2028}` 重跑所有冻结的第三、四、五章矩阵；每个 seed 使用同一 recipe，不跨 seed 调参。
+- [ ] 汇总均值、标准差和适配单位的 bootstrap 置信区间：MetroPT 按时间块/事件，C-MAPSS 按 engine，TEP 按 simulation run。
+- [ ] 统计训练/推理时间时固定硬件、batch、warm-up 和计时区间；异常 run 不删除，按 validator 规则标记并重跑。
+
+## L. V2-FREEZE：论文表图与最终交付
+
+### Task V2-FREEZE-T01：结果表图流水线
+
+**文件：** `code/build_tables.py`、`code/build_figures.py`、`plan/progress.md`。
+
+- [ ] 只扫描 `formal_validated` artifact；自动排除 pilot、tuning、legacy_venv、blocked 和失败 run。
+- [ ] 生成第三章点预测表、第四章概率表、第五章风险表及误差/区间/风险曲线；表中附 dataset/protocol/seed 标识。
+- [ ] 每个正文数字记录来源 run_id、checkpoint、commit、matrix/protocol/evaluator SHA；不手工改 CSV/JSON。
+
+### Task V2-FREEZE-T02：最终复核与论文冻结
+
+- [ ] 运行 `python -m pytest code/tests/ -q`、portability 扫描、`git diff --check` 和全量 validator。
+- [ ] 检查无绝对路径、无旧 venv 产物、无 test 泄漏、无未实现模型被标为完成；确认 `git status --porcelain` 为空。
+- [ ] 创建 `v1.0-paper-freeze` tag；将实验命令、环境报告、表图索引和剩余风险写入 `plan/progress.md`。
+
+## M. 每个 Task 的提交与勾选模板
+
+每个 Task 严格按以下顺序执行，不能先勾选后补证据：
+
+1. `[ ]` 写失败测试或 schema 检查，并在本机 Conda 运行确认失败/暴露缺口。
+2. `[ ]` 实现最小代码或配置改动，只触碰 Task 声明的文件。
+3. `[ ]` 在本机运行目标测试、全量回归、dry-run 和 `git diff --check`。
+4. `[ ]` 如涉及 GPU，先 commit 并生成 local/AutoDL preflight，再开有卡实例；训练结束下载 manifest、日志和结果。
+5. `[ ]` validator、身份 SHA、fairness、finite、test count 全部通过后，将该 Step 和 Task checkbox 改为 `[x]`，并在 `plan/progress.md` 记录日期、commit、命令、run_id、设备和产物路径。
+6. `[ ]` 每个独立 Task 提交一次小 commit；不得把多个未验证 Phase 合并成一个无法回溯的提交。
+
+**文件清单约定：** Task 声明的"文件"未逐条标注创建/修改时，以仓库现状为准：路径不存在即为新建。
+
+**最终执行红线：** 对比模型先跑，本文模型后调；validation 选型，test 一次；六个协议独立；本机 Conda 负责代码门禁，AutoDL 无卡负责身份/数据门禁，AutoDL 有卡负责正式训练；任何一项门禁失败都停在当前 Task，不用旧结果或另一数据集结果填补。

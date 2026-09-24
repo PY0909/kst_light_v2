@@ -92,7 +92,7 @@ def test_common_yaml_pins_frozen_metropt_protocol():
     for field, expected in FROZEN_FIELDS.items():
         assert common[field] == expected, field
         assert point[field] == expected, field
-    assert common["model"] == "kst_light"
+    assert common["model"] == "kst_light_v2"
     assert common["max_train_batches"] is None and common["max_eval_batches"] is None
 
 
