@@ -997,3 +997,23 @@
 - `configs/ch3/fd004_external.yaml`、`configs/ch3/tep_external.yaml` 的 `model: kst_light` → `model: kst_light_v2`。
 - 验收：`grep "model: kst_light$"` 对两个文件无命中；registry 确认 `kst_light_v2` 状态 `enabled`（显示名 KST-Light v2），并按 FD004 配置维度（hidden_dim=64）成功实例化（250,559 参数）。
 - `metropt_main.yaml` 保持 `model: kst_light` 未动（归 V2-P01-T01）。
+
+## 2026-09-26（V2-X0-CLOSE-T01 完成：Conda 与跨机身份预检）
+
+- **前置清理**：plan.md 的 V2-ROADMAP-2026-09-25 修订（163 行）与 `.zcodeignore` 分别提交（`4fed87c`、`5d4403c`）；连同此前未推送的 `f367ae6`、`59cc786` 一并 push，远端从 `1ca2924` 推进到 `5d4403c`，跨机身份链恢复完整。
+- **本机检查（macOS，Conda `kst_probflow`，commit `5d4403c`）**：
+  - 全量 pytest：`PYTHONPATH=code pytest code/tests/ -q` → **391 passed / 0 failed / 0 skipped**（131s，与 V2-P00 基线一致；2 个既有 sklearn OptimizeWarning）。
+  - FD004 dry-run：`run_pilot_matrix.py --profile fd004 --mode dry-run --matrix all` → 49 key 完整展开（42 point + 7 probabilistic），不实例化模型。
+  - 数据级协议构建（无训练）：FD004（50/10/1，split_seed=2026）21 传感器、37242/9316/27161 窗口，split SHA `61c7db91…`、normalization SHA `2cb43b19…` 与历史一致；TEP（96/24/12，split_seed=2026）52 传感器、12800/3200/35500 窗口、按 run 划分。
+  - 配置 schema：三个 `configs/ch3/*.yaml` 经 `Ch3ExperimentConfig.from_yaml` 全部加载校验通过（metropt_main 旧模型 ID 修正归 V2-LITE-T05）；portability 2 passed。
+  - **已知缺口（不阻塞 T01）**：TEP `split_sha256=None`、split_info 无 normalization 身份字段、faulty RData 存在但默认协议不展开（内存限制说明已入 split_info）——`tep_faulty` 协议与身份链补齐归 V2-CH3-CODE-T01。
+- **本机 preflight**：fd004 + metropt3 两份 local-preflight.json 生成于 `5d4403c`（`--require-clean` 通过）；metropt3 旧报告（commit `7cbebbb2`，2026-09-24）由程序重建覆盖——stale 清理完成。
+- **AutoDL 无卡**（`connect.nmb2.seetacloud.com:43676`，容器 `autodl-container-511a4fa322-e1e797dc`，755GB RAM/无 GPU，数据盘 39GB 可用）：
+  - 全新 clone `https://github.com/PY0909/kst_light_v2.git` 至 `/root/autodl-tmp/kst_light_v2`，checkout `5d4403c`，`git status --porcelain` 为空。
+  - 数据集从数据盘 `new_work/dataset/` 复制三套（CMAPSSData 44M、dataverse_files 1.4G、metropt 239M）；MetroPT CSV SHA 抽核 `db30ccb4ea40…` 与本机一致（完整比对由 compare_reports 完成）。
+  - 环境：`/root/miniconda3` base（Python 3.12.3 + torch 2.5.1+cu124 + pyyaml/numpy，cuda_available=false 为无卡预期）；环境名/路径不参与身份比对。
+  - `KST_PROJECT_ROOT/KST_DATA_ROOT/KST_RESULT_ROOT` 显式设置；fd004 preflight 数秒完成，metropt3 preflight 首次生成约 **105 分钟**（round_trip 解析 208MB CSV + 逐 engine 二分校准生成三 split mask bundle，单核约 49% CPU；本机当时复用既有 bundle 故秒级）——mask bundle 已缓存于数据盘，后续 preflight 为秒级。该耗时为无卡实例 CPU 单核性能所致，不构成协议缺陷。
+  - 两份 autodl-preflight.json 回传本机（`results/pilot/{fd004,metropt3}/environment/`）。
+- **跨机比对**：本机以 `--compare` 重建并比对，fd004 与 metropt3 均 `identity_sections_match`——git commit（`5d4403c`）、code_fingerprint、两矩阵 SHA、数据集文件 SHA、协议身份（split/raw/partition/timeline/window_catalog/normalization/time_scale/target/evaluator）全部一致；metropt3 三份 mask bundle（v3_train/valid/test_mixed_0.30_seed2026.npz）内容 SHA 跨机逐字节一致，再次验证 mask 生成跨机确定性。
+- **结论**：V2-X0-CLOSE-T01 三项 checkbox 全部满足并勾选；本机与 AutoDL 无卡身份链闭合，具备进入 V2-X0-CLOSE-T02（AutoDL 有卡 CUDA smoke）的资格。GPU 训练门禁：换有卡实例后须在 `5d4403c`（或更新的 clean commit）重新生成 local/remote preflight 并比对通过。
+- **产物**：`results/pilot/fd004/environment/{local,autodl}-preflight.json`、`results/pilot/metropt3/environment/{local,autodl}-preflight.json`、远端 mask bundle 三份（数据盘 `results/pilot/metropt3/protocol/masks/metropt3_chrono_502030_v2/`）。

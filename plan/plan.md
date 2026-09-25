@@ -718,9 +718,9 @@ FD001、FD002、FD003、FD004 是四个独立正式协议。MetroPT 使用 `rand
 
 ### Task V2-X0-CLOSE-T01：Conda 与跨机身份预检
 
-- [ ] 在本机 `kst_probflow` Conda 环境运行全量 pytest、FD004/TEP dry-run、配置 schema 和 portability 检查；确认 `git status --porcelain` 为空后提交。
-- [ ] AutoDL 无卡 checkout 同一 commit，设置 `KST_PROJECT_ROOT`、`KST_DATA_ROOT`、`KST_RESULT_ROOT`，生成 local/AutoDL preflight；比较 commit、code/data/matrix/protocol SHA，环境名和绝对路径按规则忽略。
-- [ ] 任何旧 venv 或旧 commit 的 preflight 标记 stale 并重建；未通过身份比较不得开 GPU 训练。
+- [x] 在本机 `kst_probflow` Conda 环境运行全量 pytest、FD004/TEP dry-run、配置 schema 和 portability 检查；确认 `git status --porcelain` 为空后提交。（2026-09-26：391 passed / 0 failed；FD004 49-key dry-run + FD004/TEP 数据级协议构建通过；3 个 ch3 YAML schema 通过；portability 2 passed。TEP `split_sha256=None`、无 normalization 身份字段——已知缺口，归 V2-CH3-CODE-T01 补齐。）
+- [x] AutoDL 无卡 checkout 同一 commit，设置 `KST_PROJECT_ROOT`、`KST_DATA_ROOT`、`KST_RESULT_ROOT`，生成 local/AutoDL preflight；比较 commit、code/data/matrix/protocol SHA，环境名和绝对路径按规则忽略。（2026-09-26：commit `5d4403c` 双机一致，fd004 与 metropt3 两 profile `compare_reports` 均 `identity_sections_match`；metropt3 三份 mask bundle 内容 SHA 跨机逐字节一致。）
+- [x] 任何旧 venv 或旧 commit 的 preflight 标记 stale 并重建；未通过身份比较不得开 GPU 训练。（2026-09-26：metropt3 本机旧报告由 commit `7cbebbb2` 程序化重建为 `5d4403c`；AutoDL 为全新 clone 无旧报告。）
 
 ### Task V2-X0-CLOSE-T02：FD004 与 TEP 接线 smoke
 
