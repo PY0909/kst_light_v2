@@ -798,10 +798,10 @@ FD001、FD002、FD003、FD004 是四个独立正式协议。MetroPT 使用 `rand
 
 **文件：** `code/run_experiment.py`、`code/kaf_profiti/experiments/registry.py`、`code/kaf_profiti/experiments/evaluator.py`。
 
-- [ ] 增加 `chapter=ch3` contract：模型必须提供 `predict_point()` 和点预测 loss；统一 device、batch、checkpoint、test count。
-- [ ] 修复 `create_protocol_datasets()` 的 `split_seed` 传递和 CLI/env/config 优先级；运行时只解析环境变量或相对默认值。
-- [ ] manifest 写入 `dataset/protocol/mask/normalization/evaluator/code/matrix` SHA、命令、环境和 checkpoint SHA。
-- [ ] 测试错误模型能力、路径可移植性、resume 身份和 test 只调用一次。
+- [x] 增加 `chapter=ch3` contract：模型必须提供 `predict_point()` 和点预测 loss；统一 device、batch、checkpoint、test count。（2026-09-26：`--chapter ch3|legacy`（默认按模型接口自动解析）；`evaluator.require_point_contract` 强制 `predict_point`+`loss`（无点契约模型显式 ValueError）；ch3 训练 `model.loss(batch)`、逐 epoch valid MAE/RMSE（`evaluate_batches(track="point")`）、checkpoint 按 **validation MAE** 选择、test 单次点评估且 NLL/CRPS/PICP/MPIW=null；test_evaluation_count formal=1/smoke=0 保持 V2-LITE-T01 口径。）
+- [x] 修复 `create_protocol_datasets()` 的 `split_seed` 传递和 CLI/env/config 优先级；运行时只解析环境变量或相对默认值。（ExperimentConfig+CLI 新增 `split_seed`/`mask_seed`（默认 2026）并透传至 `create_protocol_datasets`；路径解析保持 V2-X0-T01 的 `resolve_runtime_paths` 契约（CLI>env>相对默认）。另修 registry `create_model` 对 `kst_light_v2` 的 `pred_len=24` 硬编码——新增 `pred_len` 参数透传，FD004(10)/TEP(24) 维度正确。）
+- [x] manifest 写入 `dataset/protocol/mask/normalization/evaluator/code/matrix` SHA、命令、环境和 checkpoint SHA。（training manifest 新增 `protocol_identity` 块：split_sha256/normalization_sha256（来自协议 split_info）/mask_sha256（mask npz 文件）/evaluator_sha256/code_sha256（复用 pilot_runner code fingerprint）/matrix_sha256（ch3=权威 point_matrix.yaml 文件 SHA，legacy=null）+ 顶层 `command`/`environment{python,torch}`/`checkpoint_sha256`/`split_seed`/`mask_seed`。）
+- [x] 测试错误模型能力、路径可移植性、resume 身份和 test 只调用一次。（新增 `code/tests/ch3/test_ch3_contract.py` 6 项：契约拒绝/接受、registry pred_len、kst_light_v2 FD004 端到端 formal（身份链逐字段+matrix SHA 精确匹配+test_evaluation_count=1）、ch3 smoke 零 test、resume 同身份通过且 dataset 漂移被拒；portability 由既有策略测试自动覆盖（全量 434 passed）。）
 
 ### Task V2-CH3-CODE-T03：第三章矩阵和 validator
 

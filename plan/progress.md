@@ -1081,3 +1081,12 @@
   - 缺源显式失败：FileNotFoundError 注明 blocked_data_gate、禁止 fault-free fallback（测试锁定，用户同日确认正式实验用 Faulty 两份）。
   - **规模登记**：窗口 256000/64000/**710000**（train/valid/test）——test 集巨大，V2-CH3-SINGLE-T03 的 TEP 正式 run 评估耗时长（含 mask 生成），需在预算中预留；单协议构建常驻内存约 4-6GB（24GB 本机可行，AutoDL 无卡 755GB 无虞）。
 - **既有回归**：重复时间戳（metropt reject_duplicate_timestamps）、gap 阈值、列维度/列序、mask 重放（timeline bundle）、train-only normalization 泄漏测试全部保持绿；collator 的 window_id 为可选安全设计，无需改动 batch.py（未列入本 Task 文件）。
+
+## 2026-09-26（V2-CH3-CODE-T02 完成：ch3 点预测契约与训练入口修复）
+
+- **TDD**：新增 `code/tests/ch3/test_ch3_contract.py` 6 项先红后绿；全量 **434 passed / 0 failed**（428+6），legacy 概率路径（kaf_profiti_joint/kst_probflow 既有 21 项框架测试）零回归。
+- **chapter 契约**（`run_experiment.py`）：`--chapter ch3|legacy`，默认按模型接口自动解析（有 `predict_point`→ch3，否则 legacy——保证既有调用方行为不变）；显式 `--chapter ch3` 对无点契约模型抛 `ValueError: predict_point`（`evaluator.require_point_contract`，测试锁定）。ch3 分支：训练 `model.loss(batch)`（V2-LITE-T01 发现的 `nsamples_for_point` 旧签名断层就此闭合）、逐 epoch validation **MAE** 评分（`evaluate_batches(track="point")`，RMSE 辅助）、checkpoint 按 valid_mae 选择、formal test 单次点评估、概率指标 NLL/CRPS/PICP/MPIW=null、校准块 `not_applicable_point_contract`。
+- **seeds 与维度修复**：`ExperimentConfig`+CLI 新增 `split_seed`/`mask_seed`（2026）透传 `create_protocol_datasets`；**registry `create_model` 的 `kst_light_v2` pred_len=24 硬编码修复**（新增 `pred_len` 参数；此前 FD004 的 P=10 会被建成 24 头——单跑入口的隐性错误，端到端测试隐式覆盖 + registry 单测显式锁定）。
+- **manifest 身份链**：training manifest 新增 `protocol_identity`（dataset/chapter/split_sha256/normalization_sha256/mask_sha256/evaluator_sha256/code_sha256/matrix_sha256——ch3 为权威 `configs/ch3/point_matrix.yaml` 文件 SHA，测试精确比对）+ `command`/`environment`/`checkpoint_sha256`/`split_seed`/`mask_seed`。kst_light_v2@FD004 端到端：split_sha256 以 `61c7db91` 开头（与 T01 身份钉子一致）、全链字段非空。
+- **resume 身份**：`_assert_resume_identity` 对 checkpoint 内保存的 experiment 逐字段比对科学身份（dataset/model/seed/split_seed/mask_seed/窗口/缺失）；同身份续跑通过、dataset 漂移显式 ValueError（测试锁定）。
+- **遗留边界**：ch3 formal 暂不写 prediction .npy 产物（PredictionNpyWriter 面向概率样本），点预测 artifact schema 归 V2-CH3-CODE-T03 validator 一并定义。

@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 import argparse
+import hashlib
 import json
 import os
+import sys
 import time
 from dataclasses import asdict, dataclass
 from datetime import datetime
@@ -23,6 +25,8 @@ from kaf_profiti.experiments.manifest import (
     write_training_manifest,
 )
 from kaf_profiti.experiments.masks import MaskedWindowDataset, generate_or_load_split_masks
+from kaf_profiti.experiments.evaluator import evaluate_batches, require_point_contract
+from kaf_profiti.experiments.pilot_runner import _code_fingerprint
 from kaf_profiti.experiments.metrics import (
     completed_metrics_template,
     expected_calibration_error,
@@ -75,6 +79,10 @@ class ExperimentConfig:
     inverse_clip: float = 1_000_000.0
     checkpoint: str = ""
     run_level: str = "formal"
+    #: None auto-resolves: point-interface models -> ch3, others -> legacy
+    chapter: Optional[str] = None
+    split_seed: int = 2026
+    mask_seed: int = 2026
     #: 0 keeps library/test callers workerless; the CLI pins the
     #: lite_pipeline_v1 contract value 4 for real invocations.
     num_workers: int = 0
@@ -188,7 +196,42 @@ class PredictionNpyWriter:
         self.risk.flush()
 
 
-def _train_epoch(model, loader, optimizer, device: torch.device, max_batches: int):
+def _resolve_chapter(chapter: Optional[str], model) -> str:
+    """V2-CH3-CODE-T02: explicit or interface-derived chapter contract."""
+
+    if chapter == "ch3":
+        require_point_contract(model)
+        return "ch3"
+    if chapter == "legacy":
+        return "legacy"
+    if callable(getattr(model, "predict_point", None)) and callable(getattr(model, "loss", None)):
+        return "ch3"
+    return "legacy"
+
+
+def _point_batches(model, loader, device, max_batches: int):
+    """Yield evaluator point mappings for one loader pass."""
+
+    model.eval()
+    with torch.no_grad():
+        for idx, batch in enumerate(loader):
+            if max_batches and idx >= max_batches:
+                break
+            batch = batch.to(device)
+            prediction = model.predict_point(batch)
+            yield {
+                "target": batch.y_flat,
+                "prediction": prediction,
+                "mask": batch.mq_flat,
+            }
+
+
+def _valid_point_metrics(model, loader, device, config: ExperimentConfig) -> Dict[str, object]:
+    result = evaluate_batches(_point_batches(model, loader, device, config.max_eval_batches), track="point")
+    return {"mae": result["mae"], "rmse": result["rmse"]}
+
+
+def _train_epoch(model, loader, optimizer, device: torch.device, max_batches: int, point_contract: bool = False):
     total = 0.0
     count = 0
     start = time.perf_counter()
@@ -198,7 +241,10 @@ def _train_epoch(model, loader, optimizer, device: torch.device, max_batches: in
             break
         batch = _batch_to_device(batch, device, non_blocking=True)
         optimizer.zero_grad(set_to_none=True)
-        loss = model.loss(batch, nsamples_for_point=1)
+        if point_contract:
+            loss = model.loss(batch)
+        else:
+            loss = model.loss(batch, nsamples_for_point=1)
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         optimizer.step()
@@ -470,6 +516,29 @@ def _collect_validation_calibration(
     return risk_calibration
 
 
+_RESUME_IDENTITY_FIELDS = (
+    "dataset", "model", "seed", "split_seed", "mask_seed",
+    "history_len", "pred_len", "stride", "missing_mode", "missing_rate",
+)
+
+
+def _assert_resume_identity(checkpoint: Dict[str, object], config: ExperimentConfig) -> None:
+    """V2-CH3-CODE-T02: a resume must not silently change the run identity."""
+
+    saved = checkpoint.get("experiment") or {}
+    drifted = [
+        field
+        for field in _RESUME_IDENTITY_FIELDS
+        if field in saved and str(getattr(config, field, None)) != str(saved[field])
+    ]
+    if drifted:
+        raise ValueError(
+            f"resume identity mismatch on {drifted}: checkpoint run was "
+            f"{ {field: saved[field] for field in drifted} } but the requested "
+            f"run is { {field: getattr(config, field, None) for field in drifted} }"
+        )
+
+
 def _load_checkpoint(path: str, device: torch.device) -> Dict[str, object]:
     try:
         return torch.load(path, map_location=device, weights_only=False)
@@ -683,6 +752,7 @@ def run_experiment(config: ExperimentConfig) -> Dict[str, object]:
     if checkpoint_mode:
         checkpoint_path = str(Path(config.checkpoint))
         checkpoint = _load_checkpoint(checkpoint_path, device)
+        _assert_resume_identity(checkpoint, config)
         config = _apply_checkpoint_config(config, checkpoint)
     bundle = create_protocol_datasets(
         config.dataset,
@@ -692,6 +762,8 @@ def run_experiment(config: ExperimentConfig) -> Dict[str, object]:
         pred_len=config.pred_len,
         stride=config.stride,
         async_mode="none",
+        split_seed=config.split_seed,
+        mask_seed=config.mask_seed,
     )
     split_info = dict(bundle.split_info)
     split_info["run_id"] = config.run_id
@@ -734,6 +806,7 @@ def run_experiment(config: ExperimentConfig) -> Dict[str, object]:
         num_sensors=bundle.num_sensors,
         context_dim=bundle.context_dim,
         device=config.device,
+        pred_len=config.pred_len,
         hidden_dim=config.hidden_dim,
         te_dim=config.te_dim,
         kernel_count=config.kernel_count,
@@ -751,6 +824,7 @@ def run_experiment(config: ExperimentConfig) -> Dict[str, object]:
         sample_clip=config.sample_clip,
         inverse_clip=config.inverse_clip,
     )
+    chapter = _resolve_chapter(config.chapter, model)
     if checkpoint is not None:
         model.load_state_dict(checkpoint["model_state"])
         history = checkpoint.get("history", [])
@@ -777,15 +851,25 @@ def run_experiment(config: ExperimentConfig) -> Dict[str, object]:
         best_valid_score = None
         for epoch in range(1, config.epochs + 1):
             epoch_start = time.perf_counter()
-            train_record = _train_epoch(model, train_loader, optimizer, device, config.max_train_batches)
-            valid_metrics, _, _, _ = _evaluate(
-                model,
-                valid_loader,
-                device,
-                config,
-                bundle.num_sensors,
-                collect_outputs=False,
+            train_record = _train_epoch(
+                model, train_loader, optimizer, device, config.max_train_batches,
+                point_contract=(chapter == "ch3"),
             )
+            if chapter == "ch3":
+                point_valid = _valid_point_metrics(model, valid_loader, device, config)
+                valid_metrics = {
+                    "nll": None, "mae": point_valid["mae"], "rmse": point_valid["rmse"],
+                    "crps": None, "picp": None, "mpiw": None,
+                }
+            else:
+                valid_metrics, _, _, _ = _evaluate(
+                    model,
+                    valid_loader,
+                    device,
+                    config,
+                    bundle.num_sensors,
+                    collect_outputs=False,
+                )
             record = {
                 "epoch": epoch,
                 "train_loss": train_record["train_loss"],
@@ -804,7 +888,7 @@ def run_experiment(config: ExperimentConfig) -> Dict[str, object]:
             }
             history.append(record)
             _write_json(history_path, history)
-            valid_score = record["valid_crps"]
+            valid_score = record["valid_mae"] if chapter == "ch3" else record["valid_crps"]
             if best_valid_score is None or valid_score < best_valid_score:
                 best_valid_score = valid_score
                 best_record = record
@@ -837,6 +921,32 @@ def run_experiment(config: ExperimentConfig) -> Dict[str, object]:
     )
     _write_config_yaml(config_path, config)
     suffix = "_fixed" if checkpoint_mode else ""
+    normalization = split_info.get("normalization")
+    protocol_identity = {
+        "dataset": config.dataset,
+        "chapter": chapter,
+        "split_sha256": split_info.get("split_sha256"),
+        "normalization_sha256": (
+            normalization.get("sha256") if isinstance(normalization, dict)
+            else split_info.get("normalization_sha256")
+        ),
+        "mask_sha256": (
+            hashlib.sha256(Path(mask_path).read_bytes()).hexdigest()
+            if Path(mask_path).is_file() else None
+        ),
+        "evaluator_sha256": hashlib.sha256(
+            Path(__file__).resolve().parent.joinpath(
+                "kaf_profiti", "experiments", "evaluator.py"
+            ).read_bytes()
+        ).hexdigest(),
+        "code_sha256": _code_fingerprint(paths.project_root),
+        "matrix_sha256": (
+            hashlib.sha256(
+                (Path(paths.project_root) / "configs" / "ch3" / "point_matrix.yaml").read_bytes()
+            ).hexdigest()
+            if chapter == "ch3" else None
+        ),
+    }
     training_manifest = build_training_manifest(
         pipeline=pipeline,
         epoch_seconds=[float(record.get("epoch_time_sec", 0.0)) for record in history],
@@ -849,6 +959,8 @@ def run_experiment(config: ExperimentConfig) -> Dict[str, object]:
             "dataset": config.dataset,
             "model": config.model,
             "seed": config.seed,
+            "split_seed": config.split_seed,
+            "mask_seed": config.mask_seed,
             "history_len": config.history_len,
             "pred_len": config.pred_len,
             "stride": config.stride,
@@ -858,6 +970,19 @@ def run_experiment(config: ExperimentConfig) -> Dict[str, object]:
         },
         run_level=config.run_level,
         test_evaluation_count=0 if config.run_level == "smoke" else 1,
+    )
+    training_manifest["protocol_identity"] = protocol_identity
+    training_manifest["split_seed"] = config.split_seed
+    training_manifest["mask_seed"] = config.mask_seed
+    training_manifest["command"] = " ".join(sys.argv)
+    training_manifest["environment"] = {
+        "python": sys.version.split()[0],
+        "torch": torch.__version__,
+        "executable": Path(sys.executable).name,
+    }
+    training_manifest["checkpoint_sha256"] = (
+        hashlib.sha256(Path(final_checkpoint_path).read_bytes()).hexdigest()
+        if final_checkpoint_path and Path(final_checkpoint_path).is_file() else None
     )
     training_manifest_path = (
         _run_artifact_dir(output_dir, "manifests", config)
@@ -885,13 +1010,19 @@ def run_experiment(config: ExperimentConfig) -> Dict[str, object]:
             "final_checkpoint_path": final_checkpoint_path,
             "best_checkpoint_path": best_checkpoint_path,
         }
-    calibration = _collect_validation_calibration(
-        model,
-        valid_loader,
-        device,
-        config,
-        bundle.num_sensors,
-    )
+    if chapter == "ch3":
+        calibration = {
+            "calibration": "not_applicable_point_contract",
+            "calibration_uses_test_labels": False,
+        }
+    else:
+        calibration = _collect_validation_calibration(
+            model,
+            valid_loader,
+            device,
+            config,
+            bundle.num_sensors,
+        )
     calibration_path = (
         _run_artifact_dir(output_dir, "calibration", config)
         / f"calibration_seed{config.seed}{'_fixed' if checkpoint_mode else ''}.json"
@@ -911,16 +1042,23 @@ def run_experiment(config: ExperimentConfig) -> Dict[str, object]:
         finite_clip=config.sample_clip,
     )
     eval_start = time.perf_counter()
-    eval_metrics, _, _, _ = _evaluate(
-        model,
-        test_loader,
-        device,
-        config,
-        bundle.num_sensors,
-        prediction_writer=prediction_writer,
-        collect_outputs=False,
-        calibration=calibration,
-    )
+    if chapter == "ch3":
+        prediction_writer = None
+        eval_metrics = dict(evaluate_batches(
+            _point_batches(model, test_loader, device, config.max_eval_batches),
+            track="point",
+        ))
+    else:
+        eval_metrics, _, _, _ = _evaluate(
+            model,
+            test_loader,
+            device,
+            config,
+            bundle.num_sensors,
+            prediction_writer=prediction_writer,
+            collect_outputs=False,
+            calibration=calibration,
+        )
     eval_time = time.perf_counter() - eval_start
     metrics_path = _run_artifact_dir(output_dir, "metrics", config) / metrics_name
     metrics = {
@@ -928,11 +1066,15 @@ def run_experiment(config: ExperimentConfig) -> Dict[str, object]:
         "model": config.model,
         "run_id": config.run_id,
         "seed": config.seed,
+        "split_seed": config.split_seed,
+        "mask_seed": config.mask_seed,
+        "chapter": chapter,
         "missing_rate": config.missing_rate,
         "history": config.history_len,
         "horizon": config.pred_len,
         **completed_metrics_template(),
         **eval_metrics,
+        **({"nll": None, "crps": None, "picp": None, "mpiw": None} if chapter == "ch3" else {}),
         "train_time_sec": train_time,
         "eval_time_sec": eval_time,
         "num_params": sum(param.numel() for param in model.parameters()),
@@ -951,7 +1093,9 @@ def run_experiment(config: ExperimentConfig) -> Dict[str, object]:
         "best_checkpoint_path": best_checkpoint_path,
         "checkpoint_selection": checkpoint_selection,
         "best_epoch": best_record.get("epoch") if best_record else None,
-        "best_valid_metric_name": "valid_crps" if best_record else None,
+        "best_valid_metric_name": (
+            ("valid_mae" if chapter == "ch3" else "valid_crps") if best_record else None
+        ),
         "best_valid_metric_value": best_record.get("valid_crps") if best_record else None,
         "status": status,
         "error": None,
@@ -986,6 +1130,13 @@ def parse_args() -> ExperimentConfig:
         "--num-workers", type=int, default=4,
         help="lite_pipeline_v1 contract value; 0 disables worker processes",
     )
+    parser.add_argument(
+        "--chapter", choices=("ch3", "legacy"), default=None,
+        help="ch3 enforces the point contract (predict_point + point loss); "
+             "default auto-resolves by model interface",
+    )
+    parser.add_argument("--split-seed", type=int, default=2026)
+    parser.add_argument("--mask-seed", type=int, default=2026)
     parser.add_argument("--missing-mode", default="mixed")
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--weight-decay", type=float, default=1e-4)

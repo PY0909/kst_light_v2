@@ -12,6 +12,27 @@ import torch
 from kaf_profiti.experiments.accumulators import GlobalMetricAccumulator
 
 
+def require_point_contract(model) -> None:
+    """V2-CH3-CODE-T02: enforce the chapter=ch3 point contract on a model.
+
+    The model must expose ``predict_point`` (mapping an ``IndustrialBatch`` to
+    a ``[B, P*N]`` point forecast) and a callable ``loss``; probabilistic-only
+    models are rejected so a ch3 run can never silently fall back to a
+    distribution head.
+    """
+
+    if not callable(getattr(model, "predict_point", None)):
+        raise ValueError(
+            f"chapter=ch3 requires predict_point(); model "
+            f"{type(model).__name__} does not provide the point contract"
+        )
+    if not callable(getattr(model, "loss", None)):
+        raise ValueError(
+            f"chapter=ch3 requires a callable loss(); model "
+            f"{type(model).__name__} does not provide the point contract"
+        )
+
+
 def evaluate_batches(batches: Iterable[Mapping[str, torch.Tensor]], track: str, nsamples: int = 100, interval_level: float = 0.95) -> Dict[str, object]:
     """Aggregate point/probability metrics from precomputed batch mappings.
 

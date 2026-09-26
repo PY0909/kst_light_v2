@@ -419,6 +419,7 @@ def create_model(
     attention_diag_floor: float = 0.05,
     sample_clip: float = 20.0,
     inverse_clip: float = 1_000_000.0,
+    pred_len: int = 24,
 ):
     spec = get_model_spec(name)
     if spec.status != "enabled":
@@ -467,7 +468,7 @@ def create_model(
                 preconv_dim=preconv_dim,
                 patch_lens=patch_lens_tuple,
                 cross_variable_mode="fla",
-                pred_len=24,
+                pred_len=int(pred_len),
             )
         ).to(device)
     if name == "kst_flow_v2":
