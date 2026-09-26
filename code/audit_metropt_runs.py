@@ -41,6 +41,11 @@ class AuditContract:
     #: fingerprint changes with every commit, so reuse requires a *clean* git
     #: provenance rather than a byte-identical fingerprint.
     registry_code_fingerprint: str = ""
+    #: Documented runtime environment for runs whose manifests predate the
+    #: environment field (H2 was produced by the legacy torch23 venv, Python
+    #: 3.9.21 — progress 2026-09-20). Used both as audit evidence and to
+    #: assign the legacy_venv_artifact eligibility the plan requires.
+    documented_environment: str = ""
 
 
 @dataclass
@@ -119,9 +124,19 @@ def audit_run_directory(run_dir: Path, contract: AuditContract, environment: str
             f"{provenance.get('dirty_file_count')} dirty files): run identity is not "
             "reproducible from a clean checkout",
         )
-    runtime_env = manifest.get("environment") or environment or ""
+    manifest_env = manifest.get("environment") or ""
+    runtime_env = manifest_env or environment or contract.documented_environment
+    eligibility = "eligible" if decision.decision == "reuse" else "failed"
     if contract.environment_hint and runtime_env and runtime_env != contract.environment_hint:
-        decision.fail("rerun", f"environment {runtime_env!r} is not {contract.environment_hint!r}")
+        decision.fail(
+            "rerun",
+            f"environment {runtime_env!r} is not the contract environment "
+            f"{contract.environment_hint!r}",
+        )
+        if not manifest_env:
+            # runs without an environment field inherit the documented one;
+            # a legacy venv origin is exactly the legacy_venv_artifact case
+            eligibility = "legacy_venv_artifact"
     if manifest.get("matrix_sha256") is None:
         decision.fail(
             "rerun",
@@ -135,6 +150,29 @@ def audit_run_directory(run_dir: Path, contract: AuditContract, environment: str
     if history_path.is_file():
         history = json.loads(history_path.read_text(encoding="utf-8"))
         epochs = len(history)
+
+    # artifact integrity: recompute on-disk SHAs against the manifest chain.
+    # Manifest artifact paths are result-root-relative from the run's original
+    # location; archived runs were moved whole, so each artifact is resolved
+    # by basename inside the run directory (verifies content survived the
+    # relocation untouched).
+    import hashlib as _hashlib
+
+    artifacts_intact = True
+    artifacts = manifest.get("artifacts") or {}
+    artifact_shas = manifest.get("artifact_sha256") or {}
+    for name, relative in artifacts.items():
+        artifact_path = run_dir / Path(str(relative)).name
+        if not artifact_path.is_file():
+            artifacts_intact = False
+            continue
+        if name in artifact_shas and _hashlib.sha256(
+            artifact_path.read_bytes()
+        ).hexdigest() != artifact_shas[name]:
+            artifacts_intact = False
+    checkpoint_sha = manifest.get("checkpoint_sha256")
+    if checkpoint_sha and artifact_shas.get("checkpoint") != checkpoint_sha:
+        artifacts_intact = False
     return {
         "run_id": manifest.get("run_id") or run_dir.name,
         "decision": decision.decision,
@@ -154,6 +192,15 @@ def audit_run_directory(run_dir: Path, contract: AuditContract, environment: str
         "device": manifest.get("device"),
         "epochs": epochs,
         "protocol_split_sha256": protocol_sha.get("split_sha256"),
+        "protocol_mask_sha": protocol_sha.get("mask_sha"),
+        "environment": runtime_env or None,
+        "environment_source": (
+            "manifest" if manifest_env else
+            ("documented" if contract.documented_environment else None)
+        ),
+        "eligibility": eligibility,
+        "checkpoint_sha256": checkpoint_sha,
+        "artifacts_integrity": "intact" if artifacts_intact else "tampered_or_missing",
         "artifact_path": str(run_dir),
     }
 
@@ -241,7 +288,16 @@ def main() -> int:
     merged_runs = []
     document = None
     for scan_root in SCAN_ROOTS:
-        document = build_audit_document(repo_root / scan_root, contract)
+        run_contract = contract
+        if "archive/h2_pilot_kst_light_v2" in str(scan_root):
+            # documented fact (progress 2026-09-20/09-23): the H2 runs were
+            # produced by the legacy torch23 venv (Python 3.9.21), not the
+            # kst_probflow Conda contract environment
+            run_contract = AuditContract(
+                **{**contract.__dict__,
+                   "documented_environment": "torch23_venv_legacy"}
+            )
+        document = build_audit_document(repo_root / scan_root, run_contract)
         merged_runs.extend(document["runs"])
 
     counts = {"reuse": 0, "rerun": 0, "exclude": 0}
@@ -269,10 +325,16 @@ def main() -> int:
     out_path = repo_root / args.output
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(output, ensure_ascii=False, indent=2), encoding="utf-8")
+    eligibility_counts: dict = {}
+    for record in merged_runs:
+        eligibility_counts[record.get("eligibility")] = (
+            eligibility_counts.get(record.get("eligibility"), 0) + 1
+        )
     print(json.dumps({
         "event": "metropt-single-seed-audit",
         "runs": len(merged_runs),
         "decision_counts": counts,
+        "eligibility_counts": eligibility_counts,
         "conclusion": conclusion,
         "artifact": str(out_path),
     }, ensure_ascii=False))

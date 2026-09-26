@@ -1117,3 +1117,19 @@
 - **baseline reference 缺口**：六个条件均无任何 baseline run（`baseline_reference_gap=true`），第三章章节结论解冻必须等 T01/T02（中心条件 5 baseline + ours）+ T04（其余五条件）重跑。
 - **结论**：`rerun_required`。metrics JSON 未做任何修改（审计器只读，`metrics_not_modified=true`）。产物 `plan/metropt_single_seed_audit.json`（schema metropt-single-seed-audit-v1：contract 快照 + decision_counts + 6 runs 逐条 decision/reasons/commit/split_sha/epochs/路径）。
 - **放行**：审计判定明确（T00 通过），具备执行 **V2-CH3-SINGLE-T01**（中心条件 baseline-first，AutoDL 有卡）的资格。执行入口：`run_pilot_matrix.py --config configs/ch3/point_matrix.yaml --mode full --protocol metropt3 --condition-id point_mixed_030 --family baseline`（顺序固定 li_tcn→ff_gru→masked_tcn→gru_d→ode_rnn→kst_light_v2，ours 由 gate 自动放行）。
+
+## 2026-09-27（V2-CH3-SINGLE-T00 审查与整改）
+
+- **审查发现**（对照 T00 checkbox 逐条复核）：
+  - **P1（实质缺陷）环境核对空转**：H2 manifest 无任何环境字段（仅 `environment_preflight_sha: None`），审计器的环境检查在真实数据上静默跳过；而环境事实已知（H2 由 legacy torch23 venv 产生，progress 2026-09-20）。原 audit JSON 无环境结论。
+  - **P1（实质缺陷）`legacy_venv_artifact` 标记缺失**：计划 checkbox 1 明确要求旧 venv 产物统一标记，原审计只有 reuse/rerun/exclude 决定、无 eligibility 字段。
+  - **P2（缺陷）checkpoint SHA 与 artifact 完整性未核对**：checkbox 1 列明 checkpoint SHA，原审计未记录、未比对。
+  - **P3（测试有效性）环境降级单测测的是现实中不存在的 manifest 字段**（自造 `environment` 字段；真实 H2 manifest 无此字段）。
+  - 正面确认：scan 覆盖完整（runs 空 + archive 6 + sanity/recheck 正确排除）；metrics 零改动；exclude 终结语义锁定；结论 rerun_required 不受影响。
+- **补强实证**：mixed@0.30 的三份 mask bundle（train `ed1c0695`/valid `43c80e0a`/test `1a24e984`）与 H2 manifest mask_sha **逐字节一致**（此前仅有 split SHA 一致，"协议可继承"从推断升级为完整证据）；其余五条件的 mask SHA 亦逐 run 入案（与 mixed 互异，符合条件维度）。
+- **整改**（先红后绿，新增 2 项测试，全量 **448 passed / 0 failed**）：
+  1. contract 增加 `documented_environment`（H2 归档扫描根 → `torch23_venv_legacy`），manifest 无环境字段时以登记事实为证据并输出 `environment_source=documented`；
+  2. 逐 run 输出 `eligibility`（无环境字段的 legacy venv 来源 → `legacy_venv_artifact`；reuse → eligible；否则 failed）——6/6 `legacy_venv_artifact`；
+  3. artifact 完整性：按 basename 在 run 目录内解析（适配归档迁移后 result-root 相对路径失位），重算 SHA 与 manifest 链比对 + checkpoint_sha256 与 artifact checkpoint SHA 交叉核对——6/6 `intact`（数值文件确认未被迁移改动）；
+  4. 测试改造：新增 documented-环境标记路径与 manifest 字段优先路径两测试；fixture 重写为盘上文件后算 SHA 链（修复原 fixture 双写 history 导致的伪 tampered）。
+- **重新生成** `plan/metropt_single_seed_audit.json`：decision_counts {rerun:6} + eligibility_counts {legacy_venv_artifact:6} + 逐 run 环境/checkpoint/mask SHA/完整性字段。结论不变：`rerun_required`，T01 放行状态不变。

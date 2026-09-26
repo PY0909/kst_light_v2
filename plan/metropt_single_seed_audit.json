@@ -46,6 +46,7 @@
         "head_type='residual' differs from the frozen 'mlp' contract",
         "run_level='pilot' is not 'formal'",
         "dirty git provenance (commit 29a04d747972d2dfdc67a99886472124f7770812, 9 dirty files): run identity is not reproducible from a clean checkout",
+        "environment 'torch23_venv_legacy' is not the contract environment 'kst_probflow'",
         "manifest predates the authoritative matrix (no matrix_sha256): the run is not bound to the frozen ch3_lite_freeze_v1 recipe"
       ],
       "model_id": "kst_light_v2",
@@ -67,6 +68,16 @@
       "device": "cuda",
       "epochs": 80,
       "protocol_split_sha256": "eb7b957c983972c6bdc01ce03018bea2119b4afabf914699694dcf5cae6658cb",
+      "protocol_mask_sha": {
+        "train": "34bb5f3224711f3f647d7f893133b9f4497e6b734887fc1cd16500f8591942b4",
+        "valid": "b561782d8f3995fcb8eb3f508b0155e4a7247ee57b69147028cb7d927b6516fa",
+        "test": "95656a43e8996612c63f18633a924c021ba0553a61c8a14053b4fd9daec7dee0"
+      },
+      "environment": "torch23_venv_legacy",
+      "environment_source": "documented",
+      "eligibility": "legacy_venv_artifact",
+      "checkpoint_sha256": "4dd111425e4ebaba9823321187cd2be3b0ea2e291d6b64036edb5904d94c1ff8",
+      "artifacts_integrity": "intact",
       "artifact_path": "/Users/ppy/研/kst_light_v2/archive/h2_pilot_kst_light_v2/runs/metropt3_chrono_502030_v2pointkst_light_v2m2_tune_lr3e4_cosine_ep80residualpoint_block_offline_0302026"
     },
     {
@@ -76,6 +87,7 @@
         "head_type='residual' differs from the frozen 'mlp' contract",
         "run_level='pilot' is not 'formal'",
         "dirty git provenance (commit 29a04d747972d2dfdc67a99886472124f7770812, 9 dirty files): run identity is not reproducible from a clean checkout",
+        "environment 'torch23_venv_legacy' is not the contract environment 'kst_probflow'",
         "manifest predates the authoritative matrix (no matrix_sha256): the run is not bound to the frozen ch3_lite_freeze_v1 recipe"
       ],
       "model_id": "kst_light_v2",
@@ -97,6 +109,16 @@
       "device": "cuda",
       "epochs": 80,
       "protocol_split_sha256": "eb7b957c983972c6bdc01ce03018bea2119b4afabf914699694dcf5cae6658cb",
+      "protocol_mask_sha": {
+        "train": "8de6e626b8d72df281b993707d7ff2cc3a7d1d7bd1d06dbe37ea7d1842c31cad",
+        "valid": "b742aebbeeace5cf1ff95383e3d03b16ab03fa49efdbce14684dc1de15b3c92d",
+        "test": "6087893d70d3c62b878d1cf8f15d4c84f53eb6d22f13772494b97cb44391fefd"
+      },
+      "environment": "torch23_venv_legacy",
+      "environment_source": "documented",
+      "eligibility": "legacy_venv_artifact",
+      "checkpoint_sha256": "43bf40e8496624d68f0ec5568c4735795b1a6592eba883bab43b03d109cabcad",
+      "artifacts_integrity": "intact",
       "artifact_path": "/Users/ppy/研/kst_light_v2/archive/h2_pilot_kst_light_v2/runs/metropt3_chrono_502030_v2pointkst_light_v2m2_tune_lr3e4_cosine_ep80residualpoint_low_rate_0302026"
     },
     {
@@ -106,6 +128,7 @@
         "head_type='residual' differs from the frozen 'mlp' contract",
         "run_level='pilot' is not 'formal'",
         "dirty git provenance (commit 29a04d747972d2dfdc67a99886472124f7770812, 7 dirty files): run identity is not reproducible from a clean checkout",
+        "environment 'torch23_venv_legacy' is not the contract environment 'kst_probflow'",
         "manifest predates the authoritative matrix (no matrix_sha256): the run is not bound to the frozen ch3_lite_freeze_v1 recipe"
       ],
       "model_id": "kst_light_v2",
@@ -127,6 +150,16 @@
       "device": "cuda",
       "epochs": 80,
       "protocol_split_sha256": "eb7b957c983972c6bdc01ce03018bea2119b4afabf914699694dcf5cae6658cb",
+      "protocol_mask_sha": {
+        "train": "ed1c06954f0859d9b1667bc2a8df0a61b756b26a8936b6e2cf6fe9594f7bc06b",
+        "valid": "43c80e0aa3ff0ed4d6226e82d4c848e53f2c92a6050b3dcc382785d138744dd1",
+        "test": "1a24e984adb00e1ccceb0413a4a7db32fdb0d52cdbe36d21d8ae6a72b1680f45"
+      },
+      "environment": "torch23_venv_legacy",
+      "environment_source": "documented",
+      "eligibility": "legacy_venv_artifact",
+      "checkpoint_sha256": "20af9cc3461f0dd04b7c256f68d6f5d2e40ddb19d324cd23b5f8e8caf5dbed4d",
+      "artifacts_integrity": "intact",
       "artifact_path": "/Users/ppy/研/kst_light_v2/archive/h2_pilot_kst_light_v2/runs/metropt3_chrono_502030_v2pointkst_light_v2m2_tune_lr3e4_cosine_ep80residualpoint_mixed_0302026"
     },
     {
@@ -136,6 +169,7 @@
         "head_type='residual' differs from the frozen 'mlp' contract",
         "run_level='pilot' is not 'formal'",
         "dirty git provenance (commit 29a04d747972d2dfdc67a99886472124f7770812, 9 dirty files): run identity is not reproducible from a clean checkout",
+        "environment 'torch23_venv_legacy' is not the contract environment 'kst_probflow'",
         "manifest predates the authoritative matrix (no matrix_sha256): the run is not bound to the frozen ch3_lite_freeze_v1 recipe"
       ],
       "model_id": "kst_light_v2",
@@ -157,6 +191,16 @@
       "device": "cuda",
       "epochs": 80,
       "protocol_split_sha256": "eb7b957c983972c6bdc01ce03018bea2119b4afabf914699694dcf5cae6658cb",
+      "protocol_mask_sha": {
+        "train": "5c0d36ab1c39abf133d6e0bfd9b05bce1c51d0a1acc2aa83dc19275f8a050b3e",
+        "valid": "7ae492e58edc63a8b217b589bdaba8303d82301f6d19d184dc536500915e08fa",
+        "test": "538f708d09c61d11ab09988f068cc301e6b27e0904852845aee316d0ca72e42c"
+      },
+      "environment": "torch23_venv_legacy",
+      "environment_source": "documented",
+      "eligibility": "legacy_venv_artifact",
+      "checkpoint_sha256": "69bd1aad287141549bb95e3bac25946aaa3ac30c475b0e3f3e9c76e045ae473f",
+      "artifacts_integrity": "intact",
       "artifact_path": "/Users/ppy/研/kst_light_v2/archive/h2_pilot_kst_light_v2/runs/metropt3_chrono_502030_v2pointkst_light_v2m2_tune_lr3e4_cosine_ep80residualpoint_random_0002026"
     },
     {
@@ -166,6 +210,7 @@
         "head_type='residual' differs from the frozen 'mlp' contract",
         "run_level='pilot' is not 'formal'",
         "dirty git provenance (commit 29a04d747972d2dfdc67a99886472124f7770812, 9 dirty files): run identity is not reproducible from a clean checkout",
+        "environment 'torch23_venv_legacy' is not the contract environment 'kst_probflow'",
         "manifest predates the authoritative matrix (no matrix_sha256): the run is not bound to the frozen ch3_lite_freeze_v1 recipe"
       ],
       "model_id": "kst_light_v2",
@@ -187,6 +232,16 @@
       "device": "cuda",
       "epochs": 80,
       "protocol_split_sha256": "eb7b957c983972c6bdc01ce03018bea2119b4afabf914699694dcf5cae6658cb",
+      "protocol_mask_sha": {
+        "train": "a236c737c96ea6e3f160b5c60fbe81ff383329d49b78200c25820baa97edd81d",
+        "valid": "828010e09155fd7e72451e0c4baca1749d19ca1807178b83a858aada7954001c",
+        "test": "2ab1e9b0af0b28e32b7ad3ee750c7603d20bcfc25c2ab0f1ba6e6a61d269ecea"
+      },
+      "environment": "torch23_venv_legacy",
+      "environment_source": "documented",
+      "eligibility": "legacy_venv_artifact",
+      "checkpoint_sha256": "b36c78da140e1260f24f1af0c2dcdd1866832aefab19d13366edde63e611f04f",
+      "artifacts_integrity": "intact",
       "artifact_path": "/Users/ppy/研/kst_light_v2/archive/h2_pilot_kst_light_v2/runs/metropt3_chrono_502030_v2pointkst_light_v2m2_tune_lr3e4_cosine_ep80residualpoint_random_0302026"
     },
     {
@@ -196,6 +251,7 @@
         "head_type='residual' differs from the frozen 'mlp' contract",
         "run_level='pilot' is not 'formal'",
         "dirty git provenance (commit 29a04d747972d2dfdc67a99886472124f7770812, 9 dirty files): run identity is not reproducible from a clean checkout",
+        "environment 'torch23_venv_legacy' is not the contract environment 'kst_probflow'",
         "manifest predates the authoritative matrix (no matrix_sha256): the run is not bound to the frozen ch3_lite_freeze_v1 recipe"
       ],
       "model_id": "kst_light_v2",
@@ -217,6 +273,16 @@
       "device": "cuda",
       "epochs": 80,
       "protocol_split_sha256": "eb7b957c983972c6bdc01ce03018bea2119b4afabf914699694dcf5cae6658cb",
+      "protocol_mask_sha": {
+        "train": "e405ca11e47ef474bad9e8845b61d56ba30f98be6aa4a9d72008d8e751f25e05",
+        "valid": "4949f2a5820be05a5a2a0c2a9135042e3ccff65552d3d062f1935fdc26ab4bdd",
+        "test": "90dc6a410ba2d777b03fbfd9bd100654bf770ebeacf482a21c87df647fc3343f"
+      },
+      "environment": "torch23_venv_legacy",
+      "environment_source": "documented",
+      "eligibility": "legacy_venv_artifact",
+      "checkpoint_sha256": "3d2eef65ad8b7e1b3d9ce791c3e967c32b7bdf1075a01eeab8f051640e97e8d3",
+      "artifacts_integrity": "intact",
       "artifact_path": "/Users/ppy/研/kst_light_v2/archive/h2_pilot_kst_light_v2/runs/metropt3_chrono_502030_v2pointkst_light_v2m2_tune_lr3e4_cosine_ep80residualpoint_random_0702026"
     }
   ]

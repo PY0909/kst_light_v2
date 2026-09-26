@@ -25,7 +25,7 @@ from audit_metropt_runs import (  # noqa: E402
 
 def _write_run(root: Path, key: str, manifest_overrides: dict, *,
                metrics_overrides: dict | None = None,
-               epochs: int = 80, files=("manifest.json",)) -> Path:
+               epochs: int = 80) -> Path:
     run_dir = root / key
     run_dir.mkdir(parents=True, exist_ok=True)
     manifest = {
@@ -53,14 +53,33 @@ def _write_run(root: Path, key: str, manifest_overrides: dict, *,
         "protocol_sha": {"split_sha256": "eb7b957c"},
     }
     manifest.update(manifest_overrides)
-    (run_dir / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
-    if "metrics.json" in files or "all":
-        metrics = {"mae": 0.25, "rmse": 0.5, "parameter_count": 240218}
-        metrics.update(metrics_overrides or {})
-        (run_dir / "metrics.json").write_text(json.dumps(metrics), encoding="utf-8")
-        files = tuple(files) + ("metrics.json",)
+
     history = [{"epoch": e, "valid_mae": 0.4 - e * 0.001} for e in range(1, epochs + 1)]
     (run_dir / "history.json").write_text(json.dumps(history), encoding="utf-8")
+    metrics = {"mae": 0.25, "rmse": 0.5, "parameter_count": 240218}
+    metrics.update(metrics_overrides or {})
+    (run_dir / "metrics.json").write_text(json.dumps(metrics), encoding="utf-8")
+    (run_dir / "predictions.json").write_text("{}", encoding="utf-8")
+    (run_dir / "checkpoint.pt").write_bytes(b"fake-checkpoint-bytes")
+
+    import hashlib
+
+    def _sha(name: str) -> str:
+        return hashlib.sha256((run_dir / name).read_bytes()).hexdigest()
+
+    manifest.setdefault("artifacts", {
+        "history": "history.json", "metrics": "metrics.json",
+        "checkpoint": "checkpoint.pt", "predictions": "predictions.json",
+    })
+    manifest.setdefault("artifact_sha256", {
+        name: _sha(Path(str(relative)).name)
+        for name, relative in {
+            "history": "history.json", "metrics": "metrics.json",
+            "checkpoint": "checkpoint.pt", "predictions": "predictions.json",
+        }.items()
+    })
+    manifest.setdefault("checkpoint_sha256", _sha("checkpoint.pt"))
+    (run_dir / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
     return run_dir
 
 
@@ -147,6 +166,41 @@ def test_condition_and_seed_drift_flagged(tmp_path: Path):
     record = audit_run_directory(tmp_path / key, CONTRACT)
     reasons = " ".join(record["reasons"])
     assert "condition" in reasons and "seed" in reasons
+
+
+def test_legacy_venv_documented_environment_marks_eligibility(tmp_path: Path):
+    """Real H2 manifests carry no environment field; the documented legacy
+    venv origin must surface as legacy_venv_artifact eligibility (V2-CH3
+    review remediation)."""
+
+    key = ("metropt3_chrono_502030_v2|point|kst_light_v2|m2_tune_lr3e4_cosine_ep80"
+           "|residual|point_mixed_030|2026")
+    _write_run(tmp_path, key, {})  # no environment field, dirty provenance
+    legacy_contract = AuditContract(
+        **{**CONTRACT.__dict__, "documented_environment": "torch23_venv_legacy"}
+    )
+    record = audit_run_directory(tmp_path / key, legacy_contract)
+    assert record["decision"] == "rerun"
+    assert record["eligibility"] == "legacy_venv_artifact"
+    assert record["environment"] == "torch23_venv_legacy"
+    assert record["environment_source"] == "documented"
+    reasons = " ".join(record["reasons"])
+    assert "environment" in reasons
+    # artifact chain is recorded and verified intact for the fixture
+    assert record["artifacts_integrity"] == "intact"
+    assert record["checkpoint_sha256"]
+
+
+def test_manifest_environment_field_still_wins(tmp_path: Path):
+    key = "metropt3_chrono_502030_v2|point|kst_light_v2|mlp|point_mixed_030|2026"
+    _write_run(tmp_path, key, {
+        "run_level": "formal", "head_type": "mlp", "matrix_sha256": "frozen",
+        "git_provenance": {"commit_sha": "84f96bc", "clean": True},
+        "environment": "kst_probflow",
+    })
+    record = audit_run_directory(tmp_path / key, CONTRACT, environment="kst_probflow")
+    assert record["decision"] == "reuse"
+    assert record["environment_source"] == "manifest"
 
 
 def test_build_audit_document_reports_baseline_gap(tmp_path: Path):
