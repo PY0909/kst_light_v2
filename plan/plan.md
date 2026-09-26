@@ -822,9 +822,9 @@ FD001、FD002、FD003、FD004 是四个独立正式协议。MetroPT 使用 `rand
 
 ### Task V2-CH3-SINGLE-T01：中心条件 baseline-first
 
-- [ ] AutoDL 无卡完成 checkout、data gate、dry-run 和 local/remote identity 比对。
-- [ ] AutoDL 有卡先运行 MetroPT 中心条件 `mixed@0.30` 的五个 baseline；每个 run 使用 seed/split/mask=2026。
-- [ ] validator 必须得到 `completed=5`、`nonfinite=0`、`fairness_mismatch=0`、`test_metric_count=1`；失败 run 保留并单独重跑。
+- [x] AutoDL 无卡完成 checkout、data gate、dry-run 和 local/remote identity 比对。（2026-09-27：pull `62e4c09` clean；metropt3 preflight 双机重新生成 `identity_sections_match`（mask bundle 数据盘缓存命中，秒级）；权威矩阵 dry-run 66 key 展开。）
+- [x] AutoDL 有卡先运行 MetroPT 中心条件 `mixed@0.30` 的五个 baseline；每个 run 使用 seed/split/mask=2026。（2026-09-27：`executed=5, failed=[], gate_blocked=[]`，RTX 3090，~80ep×15s/run；执行中发现并修复 T03 执行器配方缺陷——`_optimizer_config` 的 is_v2 门控使 baseline 静默回落 lr=1e-3 无 scheduler，首轮错误执行（epoch 18 处 lr=1e-3、60s/epoch）即时中止清理、修复（62e4c09，配方对全部模型生效 + num_workers=4 透传）后重跑，复跑验证 lr 起于 3e-4 cosine 衰减、epoch 15s。五 run 共享 split `eb7b957c`/mask `ed1c0695`/matrix `6e73fbf0`。）
+- [x] validator 必须得到 `completed=5`、`nonfinite=0`、`fairness_mismatch=0`、`test_metric_count=1`；失败 run 保留并单独重跑。（validator：expected=5, completed=5, failed=[], nonfinite=0, fairness_mismatch=0, test_count_errors=0, ok=true；期间修正 validator 读真实扁平 metrics payload 的形状缺陷。中心条件参考：test MAE li_tcn 0.2578 / ode_rnn 0.2850 / masked_tcn 0.2853 / ff_gru 0.2746 / gru_d 0.4082。）
 
 ### Task V2-CH3-SINGLE-T02：中心条件本文模型与 go/no-go
 

@@ -73,7 +73,9 @@ def _check_key(key, matrix, result_root: Path):
     metrics_path = run_dir / "metrics.json"
     if metrics_path.is_file():
         metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
-        point = metrics.get("point", {}) if isinstance(metrics, dict) else {}
+        # real prediction-payload metrics are flat (mae/rmse at the top
+        # level); the nested "point" mapping is accepted for compatibility
+        point = metrics.get("point", metrics) if isinstance(metrics, dict) else {}
         for field in ("mae", "rmse"):
             value = point.get(field)
             if value is None or not isinstance(value, (int, float)) or not math.isfinite(value) or value < 0:

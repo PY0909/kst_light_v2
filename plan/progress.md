@@ -1133,3 +1133,23 @@
   3. artifact 完整性：按 basename 在 run 目录内解析（适配归档迁移后 result-root 相对路径失位），重算 SHA 与 manifest 链比对 + checkpoint_sha256 与 artifact checkpoint SHA 交叉核对——6/6 `intact`（数值文件确认未被迁移改动）；
   4. 测试改造：新增 documented-环境标记路径与 manifest 字段优先路径两测试；fixture 重写为盘上文件后算 SHA 链（修复原 fixture 双写 history 导致的伪 tampered）。
 - **重新生成** `plan/metropt_single_seed_audit.json`：decision_counts {rerun:6} + eligibility_counts {legacy_venv_artifact:6} + 逐 run 环境/checkpoint/mask SHA/完整性字段。结论不变：`rerun_required`，T01 放行状态不变。
+
+## 2026-09-27（V2-CH3-SINGLE-T01 完成：中心条件五 baseline formal reference）
+
+- **门禁链**：pull `62e4c09`（clean）→ metropt3 preflight 双机 `identity_sections_match`（mask 缓存命中）→ 66-key dry-run → 正式执行。
+- **执行中缺陷发现与修复（重要）**：首轮启动后日志暴露 `lr=1.000e-03` 恒定且 60s/epoch——两个 T03 执行器接线缺陷：①`_optimizer_config` 的 `is_v2` 门控使 **baseline 静默忽略矩阵冻结配方**（回落旧 pilot 默认 lr=1e-3 无 scheduler，违反"统一配方所有模型一致"）；②`num_workers=0` 未透传（5 倍慢）。处置：epoch 18 处即时中止（无任何 manifest/test 评估产生）、清理 runs 目录、TDD 修复（先红后绿 2 项测试：baseline spec 配方生效 + legacy 默认不变；`_resolve_formal_workers`）→ commit `62e4c09` → preflight 重比对 → 重跑。复跑日志验证：lr 自 2.999e-04 起 cosine 衰减（ep53=8.19e-05，数学吻合）、epoch ~15s。
+- **执行结果**（RTX 3090，`executed=5/failed=[]/gate_blocked=[]`，每 run 80ep×~15s + 单次 test）：
+
+  | model | valid MAE | test MAE | test RMSE | params | train |
+  |---|---:|---:|---:|---:|---:|
+  | li_tcn | 0.3147 | **0.2578** | 0.5664 | 111,208 | 4792s* |
+  | ff_gru | 0.3172 | 0.2746 | 0.5659 | 27,816 | 1155s |
+  | masked_tcn | 0.3500 | 0.2853 | 0.5623 | 111,208 | 1147s |
+  | ode_rnn | 0.3686 | 0.2850 | 0.6205 | 41,576 | 1226s |
+  | gru_d | 0.4784 | 0.4082 | 0.6918 | 27,631 | 1163s |
+
+  *li_tcn 训练耗时 4792s 显著高于同侪（~1150s）——插值前处理开销，指标有效，效率对比时如实呈现。gru_d 偏弱与其历史 valid-floor 边缘表现一致。
+- **公平性身份**：五 run 共享 split `eb7b957c…`（= T00 审计确认的可继承协议身份）、mask train `ed1c0695…`（= H2/现行 bundle 逐字节一致）、matrix `6e73fbf0…`（ch3_lite_freeze_v1）、test_evaluation_count=1。
+- **validator 门禁**：expected=5 / completed=5 / nonfinite=0 / fairness_mismatch=0 / test_count_errors=0 / **ok=true**。期间修正 validator 的 metrics 形状缺陷（读真实扁平 payload：mae/rmse 顶层；嵌套 "point" 仅兼容保留，测试同步更新，3 passed）。
+- **产物**：本机 `results/pilot/metropt3/runs/`（5 run 全件）+ 训练日志；远端数据盘同步留存。
+- **T02 就绪**：go/no-go 对照基准 = 最优 baseline test MAE **0.2578**（li_tcn）；kst_light_v2 冻结配方 run 待执行（~20 分钟 GPU）。**实例仍开机**——建议顺势完成 T02 后再关机。
