@@ -1,0 +1,223 @@
+{
+  "schema": "metropt-single-seed-audit-v1",
+  "audited_at": "2026-09-26",
+  "scan_roots": [
+    "results/pilot/metropt3/runs",
+    "archive/h2_pilot_kst_light_v2/runs"
+  ],
+  "contract": {
+    "model_id": "kst_light_v2",
+    "head_type": "mlp",
+    "run_level": "formal",
+    "window": [
+      168,
+      24,
+      60
+    ],
+    "seeds": {
+      "seed": 2026,
+      "split_seed": 2026,
+      "mask_seed": 2026
+    },
+    "required_conditions": [
+      "point_block_offline_030",
+      "point_low_rate_030",
+      "point_mixed_030",
+      "point_random_000",
+      "point_random_030",
+      "point_random_070"
+    ],
+    "environment_hint": "kst_probflow"
+  },
+  "decision_counts": {
+    "reuse": 0,
+    "rerun": 6,
+    "exclude": 0
+  },
+  "baseline_reference_gap": true,
+  "conditions_with_full_baseline_reference": [],
+  "conclusion": "rerun_required",
+  "metrics_not_modified": true,
+  "runs": [
+    {
+      "run_id": "metropt3_chrono_502030_v2|point|kst_light_v2|m2_tune_lr3e4_cosine_ep80|residual|point_block_offline_030|2026",
+      "decision": "rerun",
+      "reasons": [
+        "head_type='residual' differs from the frozen 'mlp' contract",
+        "run_level='pilot' is not 'formal'",
+        "dirty git provenance (commit 29a04d747972d2dfdc67a99886472124f7770812, 9 dirty files): run identity is not reproducible from a clean checkout",
+        "manifest predates the authoritative matrix (no matrix_sha256): the run is not bound to the frozen ch3_lite_freeze_v1 recipe"
+      ],
+      "model_id": "kst_light_v2",
+      "head_type": "residual",
+      "run_level": "pilot",
+      "condition_id": "point_block_offline_030",
+      "window": [
+        168,
+        24,
+        60
+      ],
+      "seed": 2026,
+      "split_seed": 2026,
+      "mask_seed": 2026,
+      "test_evaluation_count": 1,
+      "commit": "29a04d747972d2dfdc67a99886472124f7770812",
+      "git_clean": false,
+      "code_fingerprint": "2009f24e97d541da2065dfd989cae984a375276269f92149bf66a4b8a74f1355",
+      "device": "cuda",
+      "epochs": 80,
+      "protocol_split_sha256": "eb7b957c983972c6bdc01ce03018bea2119b4afabf914699694dcf5cae6658cb",
+      "artifact_path": "/Users/ppy/研/kst_light_v2/archive/h2_pilot_kst_light_v2/runs/metropt3_chrono_502030_v2pointkst_light_v2m2_tune_lr3e4_cosine_ep80residualpoint_block_offline_0302026"
+    },
+    {
+      "run_id": "metropt3_chrono_502030_v2|point|kst_light_v2|m2_tune_lr3e4_cosine_ep80|residual|point_low_rate_030|2026",
+      "decision": "rerun",
+      "reasons": [
+        "head_type='residual' differs from the frozen 'mlp' contract",
+        "run_level='pilot' is not 'formal'",
+        "dirty git provenance (commit 29a04d747972d2dfdc67a99886472124f7770812, 9 dirty files): run identity is not reproducible from a clean checkout",
+        "manifest predates the authoritative matrix (no matrix_sha256): the run is not bound to the frozen ch3_lite_freeze_v1 recipe"
+      ],
+      "model_id": "kst_light_v2",
+      "head_type": "residual",
+      "run_level": "pilot",
+      "condition_id": "point_low_rate_030",
+      "window": [
+        168,
+        24,
+        60
+      ],
+      "seed": 2026,
+      "split_seed": 2026,
+      "mask_seed": 2026,
+      "test_evaluation_count": 1,
+      "commit": "29a04d747972d2dfdc67a99886472124f7770812",
+      "git_clean": false,
+      "code_fingerprint": "2009f24e97d541da2065dfd989cae984a375276269f92149bf66a4b8a74f1355",
+      "device": "cuda",
+      "epochs": 80,
+      "protocol_split_sha256": "eb7b957c983972c6bdc01ce03018bea2119b4afabf914699694dcf5cae6658cb",
+      "artifact_path": "/Users/ppy/研/kst_light_v2/archive/h2_pilot_kst_light_v2/runs/metropt3_chrono_502030_v2pointkst_light_v2m2_tune_lr3e4_cosine_ep80residualpoint_low_rate_0302026"
+    },
+    {
+      "run_id": "metropt3_chrono_502030_v2|point|kst_light_v2|m2_tune_lr3e4_cosine_ep80|residual|point_mixed_030|2026",
+      "decision": "rerun",
+      "reasons": [
+        "head_type='residual' differs from the frozen 'mlp' contract",
+        "run_level='pilot' is not 'formal'",
+        "dirty git provenance (commit 29a04d747972d2dfdc67a99886472124f7770812, 7 dirty files): run identity is not reproducible from a clean checkout",
+        "manifest predates the authoritative matrix (no matrix_sha256): the run is not bound to the frozen ch3_lite_freeze_v1 recipe"
+      ],
+      "model_id": "kst_light_v2",
+      "head_type": "residual",
+      "run_level": "pilot",
+      "condition_id": "point_mixed_030",
+      "window": [
+        168,
+        24,
+        60
+      ],
+      "seed": 2026,
+      "split_seed": 2026,
+      "mask_seed": 2026,
+      "test_evaluation_count": 1,
+      "commit": "29a04d747972d2dfdc67a99886472124f7770812",
+      "git_clean": false,
+      "code_fingerprint": "86ce64a361175f2e77c7e40ba8ddafb61e5a6eced648f0a116ecc1261763f891",
+      "device": "cuda",
+      "epochs": 80,
+      "protocol_split_sha256": "eb7b957c983972c6bdc01ce03018bea2119b4afabf914699694dcf5cae6658cb",
+      "artifact_path": "/Users/ppy/研/kst_light_v2/archive/h2_pilot_kst_light_v2/runs/metropt3_chrono_502030_v2pointkst_light_v2m2_tune_lr3e4_cosine_ep80residualpoint_mixed_0302026"
+    },
+    {
+      "run_id": "metropt3_chrono_502030_v2|point|kst_light_v2|m2_tune_lr3e4_cosine_ep80|residual|point_random_000|2026",
+      "decision": "rerun",
+      "reasons": [
+        "head_type='residual' differs from the frozen 'mlp' contract",
+        "run_level='pilot' is not 'formal'",
+        "dirty git provenance (commit 29a04d747972d2dfdc67a99886472124f7770812, 9 dirty files): run identity is not reproducible from a clean checkout",
+        "manifest predates the authoritative matrix (no matrix_sha256): the run is not bound to the frozen ch3_lite_freeze_v1 recipe"
+      ],
+      "model_id": "kst_light_v2",
+      "head_type": "residual",
+      "run_level": "pilot",
+      "condition_id": "point_random_000",
+      "window": [
+        168,
+        24,
+        60
+      ],
+      "seed": 2026,
+      "split_seed": 2026,
+      "mask_seed": 2026,
+      "test_evaluation_count": 1,
+      "commit": "29a04d747972d2dfdc67a99886472124f7770812",
+      "git_clean": false,
+      "code_fingerprint": "2009f24e97d541da2065dfd989cae984a375276269f92149bf66a4b8a74f1355",
+      "device": "cuda",
+      "epochs": 80,
+      "protocol_split_sha256": "eb7b957c983972c6bdc01ce03018bea2119b4afabf914699694dcf5cae6658cb",
+      "artifact_path": "/Users/ppy/研/kst_light_v2/archive/h2_pilot_kst_light_v2/runs/metropt3_chrono_502030_v2pointkst_light_v2m2_tune_lr3e4_cosine_ep80residualpoint_random_0002026"
+    },
+    {
+      "run_id": "metropt3_chrono_502030_v2|point|kst_light_v2|m2_tune_lr3e4_cosine_ep80|residual|point_random_030|2026",
+      "decision": "rerun",
+      "reasons": [
+        "head_type='residual' differs from the frozen 'mlp' contract",
+        "run_level='pilot' is not 'formal'",
+        "dirty git provenance (commit 29a04d747972d2dfdc67a99886472124f7770812, 9 dirty files): run identity is not reproducible from a clean checkout",
+        "manifest predates the authoritative matrix (no matrix_sha256): the run is not bound to the frozen ch3_lite_freeze_v1 recipe"
+      ],
+      "model_id": "kst_light_v2",
+      "head_type": "residual",
+      "run_level": "pilot",
+      "condition_id": "point_random_030",
+      "window": [
+        168,
+        24,
+        60
+      ],
+      "seed": 2026,
+      "split_seed": 2026,
+      "mask_seed": 2026,
+      "test_evaluation_count": 1,
+      "commit": "29a04d747972d2dfdc67a99886472124f7770812",
+      "git_clean": false,
+      "code_fingerprint": "2009f24e97d541da2065dfd989cae984a375276269f92149bf66a4b8a74f1355",
+      "device": "cuda",
+      "epochs": 80,
+      "protocol_split_sha256": "eb7b957c983972c6bdc01ce03018bea2119b4afabf914699694dcf5cae6658cb",
+      "artifact_path": "/Users/ppy/研/kst_light_v2/archive/h2_pilot_kst_light_v2/runs/metropt3_chrono_502030_v2pointkst_light_v2m2_tune_lr3e4_cosine_ep80residualpoint_random_0302026"
+    },
+    {
+      "run_id": "metropt3_chrono_502030_v2|point|kst_light_v2|m2_tune_lr3e4_cosine_ep80|residual|point_random_070|2026",
+      "decision": "rerun",
+      "reasons": [
+        "head_type='residual' differs from the frozen 'mlp' contract",
+        "run_level='pilot' is not 'formal'",
+        "dirty git provenance (commit 29a04d747972d2dfdc67a99886472124f7770812, 9 dirty files): run identity is not reproducible from a clean checkout",
+        "manifest predates the authoritative matrix (no matrix_sha256): the run is not bound to the frozen ch3_lite_freeze_v1 recipe"
+      ],
+      "model_id": "kst_light_v2",
+      "head_type": "residual",
+      "run_level": "pilot",
+      "condition_id": "point_random_070",
+      "window": [
+        168,
+        24,
+        60
+      ],
+      "seed": 2026,
+      "split_seed": 2026,
+      "mask_seed": 2026,
+      "test_evaluation_count": 1,
+      "commit": "29a04d747972d2dfdc67a99886472124f7770812",
+      "git_clean": false,
+      "code_fingerprint": "2009f24e97d541da2065dfd989cae984a375276269f92149bf66a4b8a74f1355",
+      "device": "cuda",
+      "epochs": 80,
+      "protocol_split_sha256": "eb7b957c983972c6bdc01ce03018bea2119b4afabf914699694dcf5cae6658cb",
+      "artifact_path": "/Users/ppy/研/kst_light_v2/archive/h2_pilot_kst_light_v2/runs/metropt3_chrono_502030_v2pointkst_light_v2m2_tune_lr3e4_cosine_ep80residualpoint_random_0702026"
+    }
+  ]
+}

@@ -1103,3 +1103,17 @@
 - **validator**（`code/validate_results.py`）：期望 66 key 逐项检查（status/key/test_evaluation_count=1/artifact+SHA/point mae/rmse finite 非负/parameter_count>0/时间字段）+ 组内 fairness（split/normalization/mask SHA 与 matrix SHA 跨模型一致）；JSON verdict + 退出码可作 Phase 门禁；fabricated 树四类失败路径测试锁定。
 - **真实链路验证**：CLI smoke `--protocol cmapss_fd001` 六模型 all_passed（entries=6, test_metric_count=0），smoke 后 runs 目录为空；mask 在 fd001 短 timeline 上校准秒级完成。
 - **V2-CH3-CODE 收官**（T01 六协议入口 → T02 ch3 契约 → T03 执行+validator），下一步 **V2-CH3-SINGLE-T00**（MetroPT 既有结果审计，本机）后按"中心条件 go/no-go → 外部五协议 → MetroPT 六条件"进 GPU 阶段。
+
+## 2026-09-26（V2-CH3-SINGLE-T00 完成：MetroPT 既有单 seed 结果审计）
+
+- **TDD**：新增 `code/tests/ch3/test_metropt_audit.py` 6 项先红后绿（审计器判定规则：residual/pilot 降级 rerun、exclude 终结不可降级、合规+矩阵绑定+clean git+环境一致才 reuse、dirty git/环境漂移降级、seed/condition 漂移标记、baseline gap 结论）。全量 **446 passed / 0 failed**（440+6）。
+- **审计对象**：`results/pilot/metropt3/runs/`（空，无未归档 run）+ `archive/h2_pilot_kst_light_v2/runs/`（6 个 H2 run）。
+- **判定（6/6 rerun，0 reuse，0 exclude）**，逐 run 四类复合原因：
+  1. git provenance dirty：commit `29a04d74`、clean=false、7 个脏文件（旧 torch23 时代产物，无法从 clean checkout 复现）；
+  2. 口径不符：head_type=residual ≠ 冻结契约 mlp（V2-LITE-T05）；
+  3. 级别不符：run_level=pilot ≠ formal；
+  4. 无矩阵绑定：manifest 无 matrix_sha256（prefreeze 产物，未绑定 ch3_lite_freeze_v1）。
+  - 协议层可继承性确认：6/6 run 的 protocol split SHA = `eb7b957c…`，与现行 metropt3 v2 协议一致——**协议身份可继承，run 产物不可继承**（正式重跑的 mask/协议构建结果将与 H2 相同，但 run 本身必须在新契约下重跑）。
+- **baseline reference 缺口**：六个条件均无任何 baseline run（`baseline_reference_gap=true`），第三章章节结论解冻必须等 T01/T02（中心条件 5 baseline + ours）+ T04（其余五条件）重跑。
+- **结论**：`rerun_required`。metrics JSON 未做任何修改（审计器只读，`metrics_not_modified=true`）。产物 `plan/metropt_single_seed_audit.json`（schema metropt-single-seed-audit-v1：contract 快照 + decision_counts + 6 runs 逐条 decision/reasons/commit/split_sha/epochs/路径）。
+- **放行**：审计判定明确（T00 通过），具备执行 **V2-CH3-SINGLE-T01**（中心条件 baseline-first，AutoDL 有卡）的资格。执行入口：`run_pilot_matrix.py --config configs/ch3/point_matrix.yaml --mode full --protocol metropt3 --condition-id point_mixed_030 --family baseline`（顺序固定 li_tcn→ff_gru→masked_tcn→gru_d→ode_rnn→kst_light_v2，ours 由 gate 自动放行）。

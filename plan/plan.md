@@ -815,10 +815,10 @@ FD001、FD002、FD003、FD004 是四个独立正式协议。MetroPT 使用 `rand
 
 ### Task V2-CH3-SINGLE-T00：MetroPT 既有单 seed 结果审计与补跑判定
 
-- [ ] 对现有 MetroPT run 逐目录核对 `model_id=kst_light_v2`、`head_type=mlp`、seed/split/mask=2026、protocol/matrix/evaluator/code SHA、Conda 环境、test evaluation count、checkpoint SHA、window `(168,24,60)` 和六个缺失条件；旧 venv、旧 commit、旧模型 ID 或缺字段的产物统一标记 `legacy_venv_artifact`/`failed`。
-- [ ] 核对已有结果是否同时包含五个 baseline reference；只存在本文模型或条件不完整时，不得直接形成章节结论，只补跑缺失的 baseline 或重新运行不合格的本文模型。
-- [ ] 若 manifest、SHA、环境和测试计数全部符合本计划，保留其 run_id 作为候选证据并只补做 validator；否则在同一 protocol/mask 下重跑，禁止手工修改 metrics JSON。
-- [ ] 产出 `metropt_single_seed_audit.json`，记录每个 run 的 `reuse|rerun|exclude` 决定、原因、commit、环境和产物路径；审计通过后才能执行中心条件 go/no-go。
+- [x] 对现有 MetroPT run 逐目录核对 `model_id=kst_light_v2`、`head_type=mlp`、seed/split/mask=2026、protocol/matrix/evaluator/code SHA、Conda 环境、test evaluation count、checkpoint SHA、window `(168,24,60)` 和六个缺失条件；旧 venv、旧 commit、旧模型 ID 或缺字段的产物统一标记 `legacy_venv_artifact`/`failed`。（2026-09-26：审计器 `code/audit_metropt_runs.py` 扫描 `results/pilot/metropt3/runs`（空）+ `archive/h2_pilot_kst_light_v2/runs`（6 runs）；每个 run 逐项核对 model_id/head_type/run_level/window/三 seed/condition/test count/git provenance（clean 标志）/environment/matrix 绑定；6 个 H2 run 全部判 **rerun**——commit `29a04d74` dirty（7 脏文件）+ head=residual ≠ 冻结 mlp + run_level=pilot ≠ formal + 无 matrix_sha256 绑定（prefreeze 产物）。split SHA `eb7b957c` 与现行协议一致（协议层可继承，run 产物不可继承）。）
+- [x] 核对已有结果是否同时包含五个 baseline reference；只存在本文模型或条件不完整时，不得直接形成章节结论，只补跑缺失的 baseline 或重新运行不合格的本文模型。（六个条件均无任何 baseline reference（`baseline_reference_gap=true`），章节结论解冻必须等 T01/T02 中心条件 + T04 全条件重跑。）
+- [x] 若 manifest、SHA、环境和测试计数全部符合本计划，保留其 run_id 作为候选证据并只补做 validator；否则在同一 protocol/mask 下重跑，禁止手工修改 metrics JSON。（6/6 不符合 → 结论 `rerun_required`；metrics JSON 未做任何修改（`metrics_not_modified=true`），审计器只读。）
+- [x] 产出 `metropt_single_seed_audit.json`，记录每个 run 的 `reuse|rerun|exclude` 决定、原因、commit、环境和产物路径；审计通过后才能执行中心条件 go/no-go。（`plan/metropt_single_seed_audit.json`（schema metropt-single-seed-audit-v1）：6 runs 逐条 decision/reasons/commit/split SHA/epochs/路径 + contract 快照（冻结配方/六条件/seeds）+ decision_counts + conclusion；判定规则由 6 项单元测试锁定（exclude 终结优先于 rerun、baseline reference 不入审计、dirty git 降级、seed/condition 漂移标记）。审计通过（= 判定明确）进入 T01。
 
 ### Task V2-CH3-SINGLE-T01：中心条件 baseline-first
 
