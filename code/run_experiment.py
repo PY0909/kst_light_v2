@@ -15,6 +15,13 @@ from torch.utils.data import DataLoader
 
 from kaf_profiti.experiments.accumulators import GlobalMetricAccumulator
 from kaf_profiti.experiments.datasets import create_protocol_datasets
+from kaf_profiti.experiments.manifest import (
+    LitePipeline,
+    build_training_manifest,
+    peak_gpu_memory_mb,
+    peak_host_memory_mb,
+    write_training_manifest,
+)
 from kaf_profiti.experiments.masks import MaskedWindowDataset, generate_or_load_split_masks
 from kaf_profiti.experiments.metrics import (
     completed_metrics_template,
@@ -25,7 +32,7 @@ from kaf_profiti.experiments.metrics import (
 )
 from kaf_profiti.experiments.registry import create_model, get_model_spec
 from kaf_profiti.experiments.runtime_paths import resolve_runtime_paths
-from kaf_profiti.industrial.batch import IndustrialCollator
+from kaf_profiti.industrial.batch import IndustrialCollator, IndustrialBatch
 
 
 @dataclass
@@ -67,6 +74,25 @@ class ExperimentConfig:
     sample_clip: float = 20.0
     inverse_clip: float = 1_000_000.0
     checkpoint: str = ""
+    run_level: str = "formal"
+    #: 0 keeps library/test callers workerless; the CLI pins the
+    #: lite_pipeline_v1 contract value 4 for real invocations.
+    num_workers: int = 0
+
+
+def _batch_to_device(batch: IndustrialBatch, device, non_blocking: bool = True) -> IndustrialBatch:
+    if not non_blocking:
+        return batch.to(device)
+    import dataclasses as _dc
+
+    return IndustrialBatch(**{
+        f.name: (
+            getattr(batch, f.name).to(device, non_blocking=True)
+            if torch.is_tensor(getattr(batch, f.name))
+            else getattr(batch, f.name)
+        )
+        for f in _dc.fields(IndustrialBatch)
+    })
 
 
 def _write_json(path: Path, payload: Dict[str, object]) -> None:
@@ -170,7 +196,7 @@ def _train_epoch(model, loader, optimizer, device: torch.device, max_batches: in
     for idx, batch in enumerate(loader):
         if max_batches and idx >= max_batches:
             break
-        batch = batch.to(device)
+        batch = _batch_to_device(batch, device, non_blocking=True)
         optimizer.zero_grad(set_to_none=True)
         loss = model.loss(batch, nsamples_for_point=1)
         loss.backward()
@@ -695,9 +721,14 @@ def run_experiment(config: ExperimentConfig) -> Dict[str, object]:
     valid_set = MaskedWindowDataset(bundle.valid, split_masks["valid"])
     test_set = MaskedWindowDataset(bundle.test, split_masks["test"])
     collator = IndustrialCollator()
-    train_loader = DataLoader(train_set, batch_size=config.batch_size, shuffle=True, collate_fn=collator)
-    valid_loader = DataLoader(valid_set, batch_size=config.batch_size, shuffle=False, collate_fn=collator)
-    test_loader = DataLoader(test_set, batch_size=config.batch_size, shuffle=False, collate_fn=collator)
+    pipeline = LitePipeline.resolve(config.device, config.num_workers)
+    loader_kwargs = pipeline.dataloader_kwargs()
+    train_loader = DataLoader(train_set, batch_size=config.batch_size, shuffle=True, collate_fn=collator, **loader_kwargs)
+    valid_loader = DataLoader(valid_set, batch_size=config.batch_size, shuffle=False, collate_fn=collator, **loader_kwargs)
+    # Smoke runs never construct the test loader: test_evaluation_count=0.
+    test_loader = None
+    if config.run_level == "formal":
+        test_loader = DataLoader(test_set, batch_size=config.batch_size, shuffle=False, collate_fn=collator, **loader_kwargs)
     model = create_model(
         config.model,
         num_sensors=bundle.num_sensors,
@@ -731,6 +762,8 @@ def run_experiment(config: ExperimentConfig) -> Dict[str, object]:
     else:
         history = []
         train_start = time.perf_counter()
+        if torch.cuda.is_available():
+            torch.cuda.reset_peak_memory_stats()
         optimizer = AdamW(model.parameters(), lr=config.lr, weight_decay=config.weight_decay)
         history_path = (
             _run_artifact_dir(output_dir, "training_history", config)
@@ -803,6 +836,55 @@ def run_experiment(config: ExperimentConfig) -> Dict[str, object]:
         / f"config_seed{config.seed}.yaml"
     )
     _write_config_yaml(config_path, config)
+    suffix = "_fixed" if checkpoint_mode else ""
+    training_manifest = build_training_manifest(
+        pipeline=pipeline,
+        epoch_seconds=[float(record.get("epoch_time_sec", 0.0)) for record in history],
+        train_seconds=float(train_time),
+        peak_gpu_memory_mb=peak_gpu_memory_mb(config.device),
+        peak_host_memory_mb=peak_host_memory_mb(),
+        parameter_count=sum(param.numel() for param in model.parameters()),
+        identity={
+            "run_id": config.run_id,
+            "dataset": config.dataset,
+            "model": config.model,
+            "seed": config.seed,
+            "history_len": config.history_len,
+            "pred_len": config.pred_len,
+            "stride": config.stride,
+            "missing_mode": config.missing_mode,
+            "missing_rate": config.missing_rate,
+            "device": config.device,
+        },
+        run_level=config.run_level,
+        test_evaluation_count=0 if config.run_level == "smoke" else 1,
+    )
+    training_manifest_path = (
+        _run_artifact_dir(output_dir, "manifests", config)
+        / f"training_manifest_seed{config.seed}{suffix}.json"
+    )
+    write_training_manifest(training_manifest_path, training_manifest)
+    if config.run_level == "smoke":
+        # Pipeline smoke: train/validation only, no calibration fit, no test
+        # evaluation, no metrics/prediction artifacts.
+        return {
+            "dataset": config.dataset,
+            "model": config.model,
+            "run_id": config.run_id,
+            "seed": config.seed,
+            "status": "smoke_passed",
+            "run_level": "smoke",
+            "test_evaluation_count": 0,
+            "evidence_status": training_manifest["evidence_status"],
+            "train_seconds": training_manifest["train_seconds"],
+            "parameter_count": training_manifest["parameter_count"],
+            "training_manifest_path": str(training_manifest_path),
+            "history_path": str(history_path),
+            "config_path": str(config_path),
+            "checkpoint_path": checkpoint_path,
+            "final_checkpoint_path": final_checkpoint_path,
+            "best_checkpoint_path": best_checkpoint_path,
+        }
     calibration = _collect_validation_calibration(
         model,
         valid_loader,
@@ -815,7 +897,6 @@ def run_experiment(config: ExperimentConfig) -> Dict[str, object]:
         / f"calibration_seed{config.seed}{'_fixed' if checkpoint_mode else ''}.json"
     )
     _write_json(calibration_path, calibration)
-    suffix = "_fixed" if checkpoint_mode else ""
     status = "completed_from_checkpoint_fixed" if checkpoint_mode else "completed"
     metrics_name = f"metrics_seed{config.seed}{suffix}.json"
     pred_dir = _run_artifact_dir(output_dir, "predictions", config)
@@ -856,6 +937,8 @@ def run_experiment(config: ExperimentConfig) -> Dict[str, object]:
         "eval_time_sec": eval_time,
         "num_params": sum(param.numel() for param in model.parameters()),
         "gpu_memory_mb": None,
+        "test_evaluation_count": 1,
+        "training_manifest_path": str(training_manifest_path),
         "metrics_path": str(metrics_path),
         "config_path": str(config_path),
         "calibration_path": str(calibration_path),
@@ -895,6 +978,14 @@ def parse_args() -> ExperimentConfig:
     parser.add_argument("--max-eval-batches", type=int, default=20)
     parser.add_argument("--nsamples", type=int, default=20)
     parser.add_argument("--device", default="cpu")
+    parser.add_argument(
+        "--run-level", choices=("formal", "smoke"), default="formal",
+        help="smoke trains/validates only and never touches the test split",
+    )
+    parser.add_argument(
+        "--num-workers", type=int, default=4,
+        help="lite_pipeline_v1 contract value; 0 disables worker processes",
+    )
     parser.add_argument("--missing-mode", default="mixed")
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--weight-decay", type=float, default=1e-4)
