@@ -1090,3 +1090,16 @@
 - **manifest 身份链**：training manifest 新增 `protocol_identity`（dataset/chapter/split_sha256/normalization_sha256/mask_sha256/evaluator_sha256/code_sha256/matrix_sha256——ch3 为权威 `configs/ch3/point_matrix.yaml` 文件 SHA，测试精确比对）+ `command`/`environment`/`checkpoint_sha256`/`split_seed`/`mask_seed`。kst_light_v2@FD004 端到端：split_sha256 以 `61c7db91` 开头（与 T01 身份钉子一致）、全链字段非空。
 - **resume 身份**：`_assert_resume_identity` 对 checkpoint 内保存的 experiment 逐字段比对科学身份（dataset/model/seed/split_seed/mask_seed/窗口/缺失）；同身份续跑通过、dataset 漂移显式 ValueError（测试锁定）。
 - **遗留边界**：ch3 formal 暂不写 prediction .npy 产物（PredictionNpyWriter 面向概率样本），点预测 artifact schema 归 V2-CH3-CODE-T03 validator 一并定义。
+
+## 2026-09-26（V2-CH3-CODE-T03 完成：矩阵执行接线与 validator；V2-CH3-CODE 收官）
+
+- **TDD**：新增 `code/tests/ch3/test_point_matrix.py` 6 项先红后绿（编排用可注入 run_fn/provider，无需真实数据；真实链路由 fd001 小规模 smoke 覆盖）；同步更新 C0-T03 的一条占位断言（`--mode full` 拒绝 → 本 Task 解除，sanity 仍拒）。全量 **440 passed / 0 failed**（434+6）。
+- **执行接线**（`run_pilot_matrix.py --config`）：
+  - `--mode dry-run`（66 key 全集，既有）/ `--mode smoke`（逐 key 单 train batch：loss finite+参数更新+valid 前向 finite，test loader 不构造、零 run 目录）/ `--mode full`（正式执行）。
+  - full 语义：**baseline-first 门禁**（ours key 需同 (protocol, condition) 组 5 个 baseline manifest 全部 verified，否则 gate_blocked 且不尝试）；**verified resume**（status/run_id/matrix SHA/test=1/artifact 存在+SHA 链/checkpoint SHA 匹配才跳过）；continue-on-error；执行复用 pilot_runner 成熟机械（RealProtocolProvider 六协议 timeline mask + 协议指纹、build_model、pilot_train_and_evaluate——含 cosine scheduler、valid 选型、单次 test、prediction artifact schema v1）。
+  - manifest：PilotRunner 同构 + formal 身份（matrix_id/matrix_sha256/recipe_version/selection_metric/protocol_sha/code_fingerprint）+ parameter_count/train_seconds/inference_time_sec + artifact SHA 链 + checkpoint_sha256。
+  - 过滤器 `--protocol/--condition-id/--model-id/--family` 支持权威路线的分阶段执行（中心条件先行、外部优先、TEP 最后）。
+  - `pilot_runner.PROFILE_DATASETS` 扩展六协议（fd001-003/tep_faulty 各自独立结果 profile，V2-P00-T05 的 pilot_root 守卫继续生效）——声明文件外的 6 行前置扩展，同 T05 白名单先例。
+- **validator**（`code/validate_results.py`）：期望 66 key 逐项检查（status/key/test_evaluation_count=1/artifact+SHA/point mae/rmse finite 非负/parameter_count>0/时间字段）+ 组内 fairness（split/normalization/mask SHA 与 matrix SHA 跨模型一致）；JSON verdict + 退出码可作 Phase 门禁；fabricated 树四类失败路径测试锁定。
+- **真实链路验证**：CLI smoke `--protocol cmapss_fd001` 六模型 all_passed（entries=6, test_metric_count=0），smoke 后 runs 目录为空；mask 在 fd001 短 timeline 上校准秒级完成。
+- **V2-CH3-CODE 收官**（T01 六协议入口 → T02 ch3 契约 → T03 执行+validator），下一步 **V2-CH3-SINGLE-T00**（MetroPT 既有结果审计，本机）后按"中心条件 go/no-go → 外部五协议 → MetroPT 六条件"进 GPU 阶段。

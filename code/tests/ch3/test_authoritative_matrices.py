@@ -248,9 +248,9 @@ def test_cli_config_rejects_legacy_pilot_matrices_and_full_mode() -> None:
     assert legacy.returncode != 0
     assert "configs/pilot" in legacy.stderr or "authoritative" in legacy.stderr
 
-    full = _run_cli("--config", AUTHORITATIVE_MATRICES["ch3"], "--mode", "full")
-    assert full.returncode != 0
-    assert "dry-run" in full.stderr
+    # V2-CH3-CODE-T03 wired full execution; sanity remains a legacy-only mode
+    sanity = _run_cli("--config", AUTHORITATIVE_MATRICES["ch3"], "--mode", "sanity")
+    assert sanity.returncode != 0
 
     both = _run_cli("--config", AUTHORITATIVE_MATRICES["ch3"], "--profile", "fd004")
     assert both.returncode != 0

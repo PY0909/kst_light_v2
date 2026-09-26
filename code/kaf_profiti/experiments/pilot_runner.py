@@ -47,9 +47,16 @@ from kaf_profiti.experiments.masks import (
 )
 from kaf_profiti.industrial.batch import IndustrialCollator
 
+# V2-CH3-CODE-T03: the formal six-protocol entry joins the profile map so
+# RealProtocolProvider can route every authoritative protocol (each to its own
+# result profile directory); fd004/metropt3 keep their historical profiles.
 PROFILE_DATASETS = {
     "fd004": "cmapss_fd004",
     "metropt3": "metropt3_chrono_502030_v2",
+    "fd001": "cmapss_fd001",
+    "fd002": "cmapss_fd002",
+    "fd003": "cmapss_fd003",
+    "tep_faulty": "tep_faulty",
 }
 
 _PROFILE_BY_DATASET = {dataset: profile for profile, dataset in PROFILE_DATASETS.items()}

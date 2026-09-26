@@ -807,9 +807,9 @@ FD001、FD002、FD003、FD004 是四个独立正式协议。MetroPT 使用 `rand
 
 **文件：** 新建 `configs/ch3/point_matrix.yaml`、修改 `code/run_pilot_matrix.py`、新建 `code/validate_results.py`、新建 `code/tests/ch3/test_point_matrix.py`。
 
-- [ ] 矩阵模型固定为 `li_tcn`、`ff_gru`、`masked_tcn`、`gru_d`、`ode_rnn`、`kst_light_v2`；所有 recipe 字段显式写出。
-- [ ] validator 检查 36 个 MetroPT run + 5 个外部协议各 6 个模型的 30 个 run，以及 key、fairness、finite、test count、参数量和时间字段。
-- [ ] dry-run 输出完整 key 集，真实运行前不生成 checkpoint/prediction。
+- [x] 矩阵模型固定为 `li_tcn`、`ff_gru`、`masked_tcn`、`gru_d`、`ode_rnn`、`kst_light_v2`；所有 recipe 字段显式写出。（矩阵于 C0-T03 创建、V2-LITE-T05 冻结 `ch3_lite_freeze_v1`：组成硬门禁恰好 5 baseline + kst_light_v2，recipe 六字段 + patience + 逐协议 ours_architecture/recipe_override 全显式。）
+- [x] validator 检查 36 个 MetroPT run + 5 个外部协议各 6 个模型的 30 个 run，以及 key、fairness、finite、test count、参数量和时间字段。（`code/validate_results.py`：按矩阵展开期望 key（默认 66），逐 key 检查 status/run_id/test_evaluation_count=1/artifact 存在与 SHA/point 指标 finite 非负/parameter_count>0/train+inference 时间字段；fairness 按 (protocol, condition) 组内 split/normalization/mask SHA 与 matrix SHA 跨模型一致；fabricated 树测试覆盖 missing/fairness drift/non-finite/test-count 四类失败。）
+- [x] dry-run 输出完整 key 集，真实运行前不生成 checkpoint/prediction。（`--config --mode dry-run` 输出 66 key 全集（C0-T03 测试锁定）；新增 `--mode smoke`（单 batch、test loader 不构造、零 run 目录——fd001 六模型真实 CLI smoke all_passed）与 `--mode full`（baseline-first 门禁：ours 需同组 5 baseline 全部 verified；verified resume 跳过已验签 run；continue-on-error；manifest 含 matrix/protocol/recipe/code SHA + 参数量与时间字段 + artifact SHA 链）；`--protocol/--condition-id/--model-id/--family` 过滤支持 CH3-SINGLE 分阶段执行。pilot_runner `PROFILE_DATASETS` 扩展六协议 profile（fd001-003/tep_faulty，各落独立结果目录）。）
 
 ## E. V2-CH3-SINGLE：第三章单 seed 正式实验
 
