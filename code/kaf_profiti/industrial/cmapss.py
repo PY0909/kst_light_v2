@@ -12,6 +12,9 @@ from .missing import MissingMechanismSimulator
 
 SETTING_COLUMNS = ["setting_1", "setting_2", "setting_3"]
 SENSOR_COLUMNS = [f"sensor_{idx}" for idx in range(1, 22)]
+#: Frozen Chapter-5 risk rule for C-MAPSS: risk at the forecast origin.
+CMAPSS_RISK_RUL_THRESHOLD = 30.0
+
 BASE_COLUMNS = ["unit", "cycle"] + SETTING_COLUMNS + SENSOR_COLUMNS
 
 
@@ -26,6 +29,8 @@ class CMapssWindowSample:
     context: Tensor
     rul: float
     unit_id: int
+    window_id: str = ""
+    risk_label: float = 0.0
 
 
 def load_cmapss_frame(data_dir: Path, subset: str, split: str) -> pd.DataFrame:
@@ -198,4 +203,6 @@ class CMapssWindowDataset(Dataset):
             context=context,
             rul=float(min(hist["rul"].iloc[-1], self.rul_cap)),
             unit_id=unit,
+            window_id=f"engine{unit}:start{start}",
+            risk_label=float(min(hist["rul"].iloc[-1], self.rul_cap) <= CMAPSS_RISK_RUL_THRESHOLD),
         )

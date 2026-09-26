@@ -53,6 +53,8 @@ class TEPWindowSample:
     context: Tensor
     rul: float
     unit_id: int
+    window_id: str = ""
+    risk_label: float = 0.0
 
 
 @dataclass
@@ -548,4 +550,6 @@ class TEPWindowDataset(Dataset):
             context=context,
             rul=float(future_fault),
             unit_id=int(unit),
+            window_id=f"unit{int(unit)}:start{int(start)}",
+            risk_label=float(future_fault),
         )

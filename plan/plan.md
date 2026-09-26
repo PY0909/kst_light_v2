@@ -789,10 +789,10 @@ FD001、FD002、FD003、FD004 是四个独立正式协议。MetroPT 使用 `rand
 
 **文件：** `code/kaf_profiti/experiments/datasets.py`、`industrial/metropt.py`、`industrial/cmapss.py`、`industrial/tep.py`、对应测试。
 
-- [ ] 统一返回 `Y_q`、`context`、`T_obs`、`T_q`、`M_obs`、`unit_id`、`window_id`、`risk_label`；窗口不得跨 segment/engine/simulation run。
-- [ ] 透传 `split_seed=2026`、`mask_seed=2026`；normalization 只从 train 统计，保存 SHA 和列名。
-- [ ] 为 FD001–FD004 分别生成 `cmapss_split_manifest.json`（官方 train/test 文件 SHA、train/valid engine 列表、RUL 文件 SHA、80/20 split seed）和 split/window SHA；为 TEP 新增 `tep_faulty_sources.json` 与 `tep_faulty` 协议，缺 faulty 时显式失败而不是 fallback 到 fault-free。
-- [ ] 测试重复 timestamp、gap、unit 边界、列维度、mask 重放和 train-only normalization。
+- [x] 统一返回 `Y_q`、`context`、`T_obs`、`T_q`、`M_obs`、`unit_id`、`window_id`、`risk_label`；窗口不得跨 segment/engine/simulation run。（2026-09-26：三类样本 dataclass 补齐 `window_id`/`risk_label`（C-MAPSS `engine{u}:start{s}` + `1[RUL≤30]`、TEP `unit{u}:start{s}` + fault 规则、MetroPT 沿用 sha 窗口 ID + 故障区间）；六协议统一契约测试逐协议断言八字段与按 unit 窗口数公式。）
+- [x] 透传 `split_seed=2026`、`mask_seed=2026`；normalization 只从 train 统计，保存 SHA 和列名。（mask_seed 经 dispatch 后置写入外层 split_info——身份 payload 不动，metropt `eb7b957c…` 与 FD004 `61c7db91…` 钉子测试证明 split_sha256 零漂移；tep_faulty 新建 train-only 归一化 artifact（含列名/SHA）。）
+- [x] 为 FD001–FD004 分别生成 `cmapss_split_manifest.json`（官方 train/test 文件 SHA、train/valid engine 列表、RUL 文件 SHA、80/20 split seed）和 split/window SHA；为 TEP 新增 `tep_faulty_sources.json` 与 `tep_faulty` 协议，缺 faulty 时显式失败而不是 fallback 到 fault-free。（`manifest_dir` 参数触发持久化：cmapss_split_manifest-v1（三文件 SHA/bytes + engine 列表 + split/window SHA）；`tep_faulty` = 官方 Faulty Training 按故障类分层 80/20（20 类 × 400/100 run）+ Faulty Testing 整体 test（故障起点 train=1/test=161），sources manifest 含文件 SHA、类列表、run 列表、区间与正负行计数；缺文件显式 FileNotFoundError 且消息注明 blocked_data_gate 禁止 fallback——测试锁定。）
+- [x] 测试重复 timestamp、gap、unit 边界、列维度、mask 重放和 train-only normalization。（新增 `test_protocol_unification.py` 15 项：六协议统一字段/seeds/身份钉子/manifest 内容/tep_faulty 分层确定性/run 隔离/缺源显式失败/分层 fault_start 风险；既有重复时间戳（metropt segmentize reject_duplicate）、gap 阈值、列维度、mask 重放、train-only normalization 泄漏测试全部保持绿。）
 
 ### Task V2-CH3-CODE-T02：修复训练入口与点预测契约
 

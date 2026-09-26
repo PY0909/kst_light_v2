@@ -72,6 +72,7 @@ class MetroPTWindowSample:
     rul: float
     unit_id: int
     window_id: str = ""
+    risk_label: float = 0.0
 
 
 def load_metropt_frame(data_dir: Path) -> pd.DataFrame:
@@ -619,6 +620,7 @@ class MetroPTChronoDataset(Dataset):
             rul=self._risk(fut),
             unit_id=0,
             window_id=record.window_id,
+            risk_label=self._risk(fut),
         )
 
     def _real_time(self, segment, record):

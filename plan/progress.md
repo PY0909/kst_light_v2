@@ -1066,3 +1066,18 @@
   - 已知偏差登记：sanity 通道无 cosine scheduler（恒定 lr 3e-4），50ep 数值与 cosine 参考不可直接对齐；复核产物在 `results/pilot/metropt3/sanity_recheck_lite_t05/`（manifest/history/log，本机与远端 sanity 目录各一份）。
 - **preflight**：冻结 commit `fc92d2c` 上双机重新生成并 `identity_sections_match`（远端当时为有卡模式；GPU 字段不参与身份段）。收尾 commit 仅文档改动，不影响身份段；下一 GPU 训练门禁（V2-CH3-SINGLE）按规则重新生成。
 - **V2-LITE 主线闭合**：T01（`0808ff5`/`bb03b7c`）+ T05（`fc92d2c` + 本条目）完成；T02–T04 后置不阻塞。tag `v0.2-lite-freeze` 打于收尾 commit。**AutoDL 本 Task 后即可关机**；下一阶段 V2-CH3-CODE（六协议数据入口/ch3 契约/validator）为纯本机工作。
+
+## 2026-09-26（V2-CH3-CODE-T01 完成：统一六协议数据入口）
+
+- **TDD**：新增 `code/tests/test_protocol_unification.py` 15 项，先红（13 failed：mask_seed 未记录、tep_faulty 不存在、manifest 未持久化、cmapss 样本缺字段）后绿；全量 `code/tests/` **428 passed / 0 failed**（413+15）。
+- **统一样本字段**（`Y_q/context/T_obs/T_q/M_obs/unit_id/window_id/risk_label`）：`CMapssWindowSample`/`TEPWindowSample` 补 `window_id`+`risk_label`，`MetroPTWindowSample` 补 `risk_label`（v2 getitem 填充）。风险语义：C-MAPSS `1[RUL_at_forecast_origin≤30]`（`CMAPSS_RISK_RUL_THRESHOLD=30` 冻结）；TEP `faultNumber>0 ∧ sample≥fault_start`（train=1/testing=161 按 split 分别传入 `fault_start_sample`）；MetroPT 查询窗与注册故障区间交集（沿用 v2 `_risk`）。第五章统一风险规则归 V2-CH5-CODE-T01/T04。
+- **seeds 透传**：`create_protocol_datasets` 新增 `mask_seed=2026`（dispatch 后置写入外层 split_info，身份 payload 零改动——钉子测试证明 metropt `eb7b957c…` 与 FD004 `61c7db91…` 的 split_sha256 不变）；MetroPT split_seed 保持 `not_applicable_chronological`（时序划分，计划设定）。
+- **C-MAPSS split manifest**：`manifest_dir` 参数触发 `<dataset>/cmapss_split_manifest.json`（schema cmapss-split-manifest-v1：官方 train/test/RUL 三文件 SHA256+bytes、train/valid engine 列表、split seed/rule、窗口参数、split/normalization SHA）。FD001–FD004 四份生成验证通过；FD001/FD004 各自 split SHA 独立（cff18fe6…/61c7db91…）。
+- **tep_faulty 协议**（新增，V2-X0-CLOSE-T02 的 blocked_data_gate 就此解除）：
+  - 数据事实：Faulty Training = 20 类 × 500 run × 500 样本（500 万行，本机 5.1s 解析）；Faulty Testing = 960 万行。
+  - split：单一 generator（split_seed=2026）按类分层 80/20 → 每类 400 train/100 valid run，无跨类借样本；test = 官方 Faulty Testing 整体。
+  - 身份链：split_identity v1（类列表/train+valid unit ids/test unit 数/window bounds/normalization SHA）→ split_sha256 `be6ca3616338…`；train-only 归一化 artifact（sensor+context，列名+SHA）；同 seed 重建逐字节一致、2027 改变 SHA（测试锁定）。
+  - `tep_faulty_sources.json`（tep-faulty-sources-v1）：两 faulty 文件 SHA/bytes、故障类 1-20、区间（training [1,500]/testing [161,960]）、分层 run 列表、test 正负行计数（sample≥161 为正）。
+  - 缺源显式失败：FileNotFoundError 注明 blocked_data_gate、禁止 fault-free fallback（测试锁定，用户同日确认正式实验用 Faulty 两份）。
+  - **规模登记**：窗口 256000/64000/**710000**（train/valid/test）——test 集巨大，V2-CH3-SINGLE-T03 的 TEP 正式 run 评估耗时长（含 mask 生成），需在预算中预留；单协议构建常驻内存约 4-6GB（24GB 本机可行，AutoDL 无卡 755GB 无虞）。
+- **既有回归**：重复时间戳（metropt reject_duplicate_timestamps）、gap 阈值、列维度/列序、mask 重放（timeline bundle）、train-only normalization 泄漏测试全部保持绿；collator 的 window_id 为可选安全设计，无需改动 batch.py（未列入本 Task 文件）。
