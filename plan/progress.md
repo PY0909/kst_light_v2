@@ -1042,3 +1042,13 @@
   - CLI：`run_pilot_matrix.py --config`（与 --profile 互斥；C0 仅 dry-run；非 dry-run 与 legacy 路径显式报错）。--profile 默认值改为 None（显式选择或回落 fd004），行为不变。
 - **验证**：全量 `code/tests/` **406 passed / 0 failed**（391+15 新增；含 portability 3 项）；三矩阵 dry-run：ch3 `expanded=66 unique=66`（metropt 36 + fd001-4/tep 各 6）、ch4 `42`（6 pair×7）、ch5 `30`（6 pair×5，planned=['kst_probflow_v2']），全部 `instantiated_models=[]`、`test_metric_count=0`；`git diff --check` 通过；新文件无机器路径。
 - **结论**：V2-X0（C0 三 Task）全部完成，FD004/TEP 接线收尾闭合，具备进入 **V2-LITE-T01** 的资格。C0 遗留的已知缺口不变：TEP `split_sha256`/normalization 身份与 `tep_faulty` 协议实现归 V2-CH3-CODE-T01；KAFNet 系列适配归 V2-CH4-CODE-T04。
+
+## 2026-09-26（V2-LITE-T01 完成：lite_pipeline_v1 训练管线基线）
+
+- **实现**（commit `0808ff5`，TDD 7 项测试先红后绿，全量 413 passed / 0 failed）：
+  - 新建 `code/kaf_profiti/experiments/manifest.py`：`LitePipeline`（`lite_pipeline_v1` 契约单一真源：num_workers=4、pin_memory、persistent_workers（随 worker 数联动）、non_blocking、fp32 amp_dtype=None）+ training-manifest-v1（`epoch_seconds/train_seconds/peak_gpu_memory_mb/num_workers/amp_dtype/parameter_count` + `peak_host_memory_mb`；CUDA 上为分配器峰值、CPU 上 gpu 字段为 null 防 RSS 误读）+ 原子写。
+  - `run_experiment.py` 接线：loader 契约旗标、训练循环 non_blocking 传输、CUDA 峰值统计复位、`--run-level smoke`（不构造 test loader、不拟合校准、`test_evaluation_count=0`、产物 `smoke_passed`/`tuning_only`）、formal 路径行为不变并新增 `test_evaluation_count=1` 与 manifest 路径字段、CLI `--num-workers` 默认 4（库内默认 0 保持既有测试轻量）。
+  - **登记的缺口（归 V2-CH3-CODE-T02）**：`run_experiment` 的 `_evaluate` 仍绑定旧概率模型 API（`model.distribution`/`flow_head.nll/sample`），`_train_epoch` 的 `loss(batch, nsamples_for_point=1)` 旧签名也与 v2 模型不兼容——v2 点模型（kst_light_v2）在其训练/评估路径尚不可运行，chapter=ch3 契约修复按计划归 V2-CH3-CODE-T02。本 Task 管线验证以 CLI 默认模型 `kaf_profiti_joint` 为载体（管线模型无关）。
+- **CPU smoke**（本机 FD004 真数据，1 epoch、30 train batch、workers=4）：`smoke_passed`/`tuning_only`，epoch_seconds [20.14]、host 峰值 2166MB、无 metrics/predictions 产物；产物在 `results/smoke/v2_lite_t01_cpu/`。
+- **CUDA 单 batch**（AutoDL RTX 3090 @ `0808ff5`，fd004 preflight 重新生成并比对 `identity_sections_match` 后执行）：loss **1.8036** finite、train_batches=1、**参数 96/97 张量发生更新**（与确定性初始值对照，Δmax=1.00e-3，单步 AdamW lr=1e-3 量级）、`test_evaluation_count=0`、`peak_gpu_memory_mb=1423.7`/host 1852.1、epoch 1.54s、参数量 42,900；日志/manifest/checkpoint 回传 `results/smoke/v2_lite_t01_cuda/`。
+- **GPU 使用纪律**：本次仅单 batch smoke（两处 remote 目录初建小坑：`results/smoke/` 需先建才有日志重定向；本机比对首次运行输出被管道吞、复跑后确认 `identity_sections_match`）。**AutoDL 本 Task 后即可关机**；V2-LITE-T05 的单 seed 复核前有大量本机工作（T05 配置冻结涉及 V2-CH3-CODE 的协议统一，实际下一 GPU 节点按权威路线为 V2-CH3-SINGLE 阶段的 baseline reference 训练）。

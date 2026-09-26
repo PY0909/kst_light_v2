@@ -743,11 +743,11 @@ FD001、FD002、FD003、FD004 是四个独立正式协议。MetroPT 使用 `rand
 
 **文件：** `code/run_experiment.py`、新建 `code/kaf_profiti/experiments/manifest.py`、新建 `code/tests/ch3/test_training_profile.py`。
 
-- [ ] 在 Conda 环境完成 `num_workers=4`、`pin_memory=true`、`persistent_workers=true`、`non_blocking=true` 的 CPU 接口检查。
-- [ ] 为 manifest 写入 `epoch_seconds`、`train_seconds`、`peak_gpu_memory_mb`、`num_workers`、`amp_dtype` 和 `parameter_count`。
-- [ ] 本机执行 `python -m pytest code/tests/ch3/test_training_profile.py -q`，再执行 ≤1 epoch CPU smoke；产物标记 `smoke_passed`，不写入正式表。
-- [ ] AutoDL 有卡只运行一次 CUDA 单 batch，确认 loss finite、参数发生更新、`test_metric_count=0`；下载日志和 manifest。
-- [ ] 固定管线 recipe 为 `lite_pipeline_v1`，提交独立 commit。
+- [x] 在 Conda 环境完成 `num_workers=4`、`pin_memory=true`、`persistent_workers=true`、`non_blocking=true` 的 CPU 接口检查。（2026-09-26：`LitePipeline.resolve` 契约单测 + DataLoader CPU 接口测试通过；CLI CPU smoke 以 `num_workers=4` 真实运行。）
+- [x] 为 manifest 写入 `epoch_seconds`、`train_seconds`、`peak_gpu_memory_mb`、`num_workers`、`amp_dtype` 和 `parameter_count`。（2026-09-26：新模块 `manifest.py`（training-manifest-v1）另含 `peak_host_memory_mb`（CPU 上 `peak_gpu_memory_mb=null` 防语义混淆）、pipeline 旗标与 run 身份；`run_experiment` 全路径写入。）
+- [x] 本机执行 `python -m pytest code/tests/ch3/test_training_profile.py -q`，再执行 ≤1 epoch CPU smoke；产物标记 `smoke_passed`，不写入正式表。（7 passed；FD004 真数据 1 epoch CLI smoke，`smoke_passed`/`tuning_only`，无任何 test 产物。）
+- [x] AutoDL 有卡只运行一次 CUDA 单 batch，确认 loss finite、参数发生更新、`test_metric_count=0`；下载日志和 manifest。（2026-09-26：RTX 3090 @ `0808ff5`，preflight `identity_sections_match` 后执行；loss 1.8036 finite、1 batch、参数 96/97 张量更新（Δmax=1e-3，单步 AdamW 量级）、`test_evaluation_count=0`、`peak_gpu_memory_mb=1423.7`；日志/manifest/checkpoint 已回传 `results/smoke/v2_lite_t01_cuda/`。）
+- [x] 固定管线 recipe 为 `lite_pipeline_v1`，提交独立 commit。（`0808ff5`；`LITE_PIPELINE_VERSION="lite_pipeline_v1"` 为单一真源，manifest 记录 `recipe_version`。）
 
 ### Task V2-LITE-T02：单因素结构筛选（后置扩展，不阻塞当前主线）
 
