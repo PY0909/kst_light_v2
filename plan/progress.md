@@ -1052,3 +1052,17 @@
 - **CPU smoke**（本机 FD004 真数据，1 epoch、30 train batch、workers=4）：`smoke_passed`/`tuning_only`，epoch_seconds [20.14]、host 峰值 2166MB、无 metrics/predictions 产物；产物在 `results/smoke/v2_lite_t01_cpu/`。
 - **CUDA 单 batch**（AutoDL RTX 3090 @ `0808ff5`，fd004 preflight 重新生成并比对 `identity_sections_match` 后执行）：loss **1.8036** finite、train_batches=1、**参数 96/97 张量发生更新**（与确定性初始值对照，Δmax=1.00e-3，单步 AdamW lr=1e-3 量级）、`test_evaluation_count=0`、`peak_gpu_memory_mb=1423.7`/host 1852.1、epoch 1.54s、参数量 42,900；日志/manifest/checkpoint 回传 `results/smoke/v2_lite_t01_cuda/`。
 - **GPU 使用纪律**：本次仅单 batch smoke（两处 remote 目录初建小坑：`results/smoke/` 需先建才有日志重定向；本机比对首次运行输出被管道吞、复跑后确认 `identity_sections_match`）。**AutoDL 本 Task 后即可关机**；V2-LITE-T05 的单 seed 复核前有大量本机工作（T05 配置冻结涉及 V2-CH3-CODE 的协议统一，实际下一 GPU 节点按权威路线为 V2-CH3-SINGLE 阶段的 baseline reference 训练）。
+
+## 2026-09-26（V2-LITE-T05 完成：第三章编码器配方冻结；V2-LITE 主线闭合）
+
+- **配方冻结**（commit `fc92d2c`，全量 413 passed 验证）：
+  - `configs/ch3/point_matrix.yaml` → `recipe_version: ch3_lite_freeze_v1`；统一 recipe 基线（50ep/128batch/lr 2e-4/cosine/patience 0/clip 1.0）+ MetroPT 覆盖（80ep、lr 3e-4，H2 证据值）；ours 架构补齐全部 M2/H2 冻结字段——**关键修正 preconv_dim=8**（原矩阵漏写，build_model 默认 16 与 H2 证据不符）+ mixer_relation_bias/scale、freshness_scale、te_dim 10、kernel_count 4、n_heads 2、freshness_tau 24.0。
+  - `metropt_main.yaml`：`kst_light→kst_light_v2`、协议 `metropt3_chrono_502030_v2`、epochs 50→80；新建 `fd001/fd002/fd003/fd004/tep_faulty.yaml`（F 表第一轮：单工况 hidden32/l1/patch[5,10]、双工况 hidden48/l2/patch[5,10,20]、TEP hidden64/batch64/patch[12,24,48]）；schema `DATASETS` 白名单补六个权威协议 ID；同步维护一处钉住旧 metropt ID 的测试断言（声明改动的机械后果）。
+- **复核路径决策**：MPS 1-epoch 探测数值爆炸（train_loss 9.3e28，freshness/exp 链在 MPS fp32 不稳，init_valid 异常 0.0328）→ 弃用；CPU 数值健康但 80ep 需 2-3 小时 → 用户开卡后转 GPU（3090 约 35 分钟完成）。CPU/MPS 探测产物已被 GPU 复核覆盖，探测结论记录在案。
+- **80-epoch 中心条件复核**（RTX 3090 @ `fc92d2c`，`run_scheme_b_matrix --mode sanity`，恒定 lr 3e-4，无 test）：
+  - 门禁：metropt3 preflight 双机 `identity_sections_match`（冻结 commit 上重新生成；远端 GitHub 访问需 `source /etc/network_turbo`，已登记为 AutoDL 常规操作）。
+  - 结果：init_valid 0.4572（= persistence 基线）→ valid@10 0.3333 → valid@50 **0.2363** → valid@80 **0.2037**，best **0.190372@ep76**；train_loss 0.2006→0.0573 单调降；finite/updated/improved 全 true；beat_naive true（−58.4%）；test_evaluation_count=0。
+  - **排序无反转判定**：50ep 检查点 0.2363 位于验收带 A1×1.02=0.2384 内，优于全部被淘汰变体（M1 0.2519 / M3 0.2389 / M4 0.2681），较 A1 cosine 参考 0.2338 高 1.1%（恒定 lr 偏差所致，非反转）；80ep 结果优于 H2 cosine 80ep 参考 0.2116 达 3.7%。M2 选择在完整预算下成立。
+  - 已知偏差登记：sanity 通道无 cosine scheduler（恒定 lr 3e-4），50ep 数值与 cosine 参考不可直接对齐；复核产物在 `results/pilot/metropt3/sanity_recheck_lite_t05/`（manifest/history/log，本机与远端 sanity 目录各一份）。
+- **preflight**：冻结 commit `fc92d2c` 上双机重新生成并 `identity_sections_match`（远端当时为有卡模式；GPU 字段不参与身份段）。收尾 commit 仅文档改动，不影响身份段；下一 GPU 训练门禁（V2-CH3-SINGLE）按规则重新生成。
+- **V2-LITE 主线闭合**：T01（`0808ff5`/`bb03b7c`）+ T05（`fc92d2c` + 本条目）完成；T02–T04 后置不阻塞。tag `v0.2-lite-freeze` 打于收尾 commit。**AutoDL 本 Task 后即可关机**；下一阶段 V2-CH3-CODE（六协议数据入口/ch3 契约/validator）为纯本机工作。

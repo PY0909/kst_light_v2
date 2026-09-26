@@ -778,10 +778,10 @@ FD001、FD002、FD003、FD004 是四个独立正式协议。MetroPT 使用 `rand
 
 **文件：** `configs/ch3/metropt_main.yaml`、新建 `configs/ch3/fd001.yaml`、`fd002.yaml`、`fd003.yaml`、`fd004.yaml`、`tep_faulty.yaml`、`plan/progress.md`。
 
-- [ ] 用 validation-only 证据选出唯一 `kst_light_v2` 配方，锁定所有六协议的初始窗口和 recipe version。
-- [ ] 当前主线只要求冻结一套可复现的 MLP-head 起始配方；T02–T04 的结构扩展不作为本文模型进入六协议单 seed 的前置条件。
-- [ ] 在 MetroPT 中心条件完成一次完整单 seed 复核，确认短训练排序没有反转；test 仅在第三章正式单 seed 阶段执行。
-- [ ] 更新配置、README/进度记录和 tag `v0.2-lite-freeze`；无卡环境重新生成 preflight。
+- [x] 用 validation-only 证据选出唯一 `kst_light_v2` 配方，锁定所有六协议的初始窗口和 recipe version。（2026-09-26：`recipe_version=ch3_lite_freeze_v1`；证据链 G1-G4/A1 淘汰→M2 唯一通过→H2 六条件确认；MetroPT 覆盖 lr=3e-4/cosine/80ep，关键修正 preconv_dim=8（此前矩阵漏写会落默认 16）；FD/TEP 为 F 表第一轮初始值，数据集调参归 V2-CH3-SINGLE-T03。）
+- [x] 当前主线只要求冻结一套可复现的 MLP-head 起始配方；T02–T04 的结构扩展不作为本文模型进入六协议单 seed 的前置条件。（口径已在矩阵注释与本条目固化；T02–T04 后置安排见 2026-09-26 路线讨论：CH3-SINGLE 后、V2-MULTI 前的窗口执行，或并入 V2-POST。）
+- [x] 在 MetroPT 中心条件完成一次完整单 seed 复核，确认短训练排序没有反转；test 仅在第三章正式单 seed 阶段执行。（2026-09-26：RTX 3090 @ `fc92d2c` 80-epoch validation-only 复核（sanity 隔离通道，test_evaluation_count=0）：valid@50=0.2363 在 A1×1.02 验收带（0.2384）内且优于全部被淘汰变体（M1 0.2519/M3 0.2389/M4 0.2681）；valid@80=0.2037、best 0.1904@ep76 优于 H2 cosine 80ep 参考 0.2116；排序无反转，选择成立。偏差已登记：sanity 通道恒定 lr 无 cosine，50ep 数值与 cosine 参考不可直接对齐。MPS 路径数值爆炸已弃用（记录在案）。）
+- [x] 更新配置、README/进度记录和 tag `v0.2-lite-freeze`；无卡环境重新生成 preflight。（tag 已打于收尾 commit；preflight 已在冻结 commit `fc92d2c` 双机重新生成并比对 `identity_sections_match`——远端当时为有卡模式，GPU 字段不参与身份段，无卡模式下身份段不变；仓库无 README 文件，进度记录以 `plan/progress.md` 承担。）
 
 ## D. V2-CH3-CODE：第三章协议与点预测代码
 
