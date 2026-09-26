@@ -1,0 +1,86 @@
+# 第五章风险权威矩阵（V2-X0-CLOSE-T03 创建；risk 协议与校准接线归 V2-CH5-CODE）
+# 硬门禁：ours 必须声明 kst_probflow_v2；C0 阶段允许 status=planned 仅用于
+# schema dry-run，正式实例化必须等 V2-CH5-CODE-T02 注册为 enabled（planned 模型
+# 在 registry 中注册前，load 会拒绝其出现在执行路径）。
+# baseline 为第四章已有概率输出的四个条目（kaf_profiti_joint 为 registry 注册名，
+# 计划文本中的 kafnet_profiti_joint 即此 id）。
+schema: formal-matrix-v1
+chapter: ch5
+track: risk
+matrix_id: ch5_risk_single_seed_v1
+recipe_version: pending_ch5_freeze
+selection_metric: valid_auprc
+
+seeds:
+  seed: 2026
+  split_seed: 2026
+  mask_seed: 2026
+
+recipe:
+  epochs: 50
+  batch_size: 8
+  learning_rate: 2.0e-4
+  weight_decay: 1.0e-4
+  scheduler: cosine
+  grad_clip_norm: 1.0
+  quantile_levels: [0.90, 0.95]
+  risk_threshold_rule: q95_validation
+
+risk:
+  calibration:
+    methods: [platt, isotonic]
+    selection: valid_auprc
+  lambda_risk_search: [0.01, 0.05, 0.1]
+
+models:
+  - {model_id: tcn_gaussian, family: baseline, head_type: gaussian_diag}
+  - {model_id: patchtst_gaussian, family: baseline, head_type: gaussian_diag}
+  - {model_id: profiti, family: baseline, head_type: flow}
+  - {model_id: kaf_profiti_joint, family: baseline, head_type: flow}
+  - {model_id: kst_probflow_v2, family: ours, head_type: flow, status: planned}
+
+protocols:
+  metropt3_chrono_502030_v2:
+    dataset: metropt3_chrono_502030_v2
+    history_len: 168
+    pred_len: 24
+    stride: 60
+    conditions:
+      - {condition_id: risk_mixed_030, missing_mode: mixed, target_missing_rate: 0.30}
+  cmapss_fd001:
+    dataset: cmapss_fd001
+    history_len: 50
+    pred_len: 10
+    stride: 1
+    conditions:
+      - {condition_id: risk_mixed_030, missing_mode: mixed, target_missing_rate: 0.30}
+  cmapss_fd002:
+    dataset: cmapss_fd002
+    history_len: 50
+    pred_len: 10
+    stride: 1
+    conditions:
+      - {condition_id: risk_mixed_030, missing_mode: mixed, target_missing_rate: 0.30}
+  cmapss_fd003:
+    dataset: cmapss_fd003
+    history_len: 50
+    pred_len: 10
+    stride: 1
+    conditions:
+      - {condition_id: risk_mixed_030, missing_mode: mixed, target_missing_rate: 0.30}
+  cmapss_fd004:
+    dataset: cmapss_fd004
+    history_len: 50
+    pred_len: 10
+    stride: 1
+    conditions:
+      - {condition_id: risk_mixed_030, missing_mode: mixed, target_missing_rate: 0.30}
+  tep_faulty:
+    dataset: tep_faulty
+    history_len: 96
+    pred_len: 24
+    stride: 12
+    recipe_override:
+      batch_size: 64
+    conditions:
+      - {condition_id: risk_mixed_030, missing_mode: mixed, target_missing_rate: 0.30}

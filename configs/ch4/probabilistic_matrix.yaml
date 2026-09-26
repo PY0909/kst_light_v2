@@ -1,0 +1,91 @@
+# 第四章概率预测权威矩阵（V2-X0-CLOSE-T03 创建；概率 adapter 与 evaluator 接线归 V2-CH4-CODE）
+# 硬门禁：ours 必须为 kst_flow_v2；旧 kst_light/kst_probflow、重复 model_id 与
+# registry not_implemented 模型（KAFNet 系列，归 V2-CH4-CODE-T04 适配）均被拒绝。
+# KAFNet 四条目适配通过后由 V2-CH4-CODE-T04 加入并同步放宽 baseline 计数门禁。
+schema: formal-matrix-v1
+chapter: ch4
+track: probabilistic
+matrix_id: ch4_probabilistic_single_seed_v1
+recipe_version: pending_ch4_freeze
+selection_metric: valid_crps
+
+seeds:
+  seed: 2026
+  split_seed: 2026
+  mask_seed: 2026
+
+# 统一训练配方初始值；batch_size 为 flow 显存保守初始值（正式口径待 CH4 冻结）
+recipe:
+  epochs: 50
+  batch_size: 8
+  learning_rate: 2.0e-4
+  weight_decay: 1.0e-4
+  scheduler: cosine
+  grad_clip_norm: 1.0
+  interval_level: 0.95
+  nsamples: 100
+
+models:
+  - {model_id: tcn_gaussian, family: baseline, head_type: gaussian_diag}
+  - {model_id: patchtst_gaussian, family: baseline, head_type: gaussian_diag}
+  - {model_id: gru_d_gaussian, family: baseline, head_type: gaussian_diag}
+  - {model_id: ode_rnn_gaussian, family: baseline, head_type: gaussian_diag}
+  - {model_id: grafiti_gaussian, family: baseline, head_type: gaussian_diag}
+  - {model_id: profiti, family: baseline, head_type: flow}
+  - model_id: kst_flow_v2
+    family: ours
+    head_type: flow
+    architecture:
+      cross_variable_mode: missing_sensor_mixer
+      mixer_layers: 2
+      hidden_dim: 64
+      n_layers: 2
+      flow_layers: 2
+      lambda_point: 0.1
+
+# 六个核心 protocol-condition pair：MetroPT 仅中心条件，其余缺失率/机制归 V2-POST
+protocols:
+  metropt3_chrono_502030_v2:
+    dataset: metropt3_chrono_502030_v2
+    history_len: 168
+    pred_len: 24
+    stride: 60
+    conditions:
+      - {condition_id: prob_mixed_030, missing_mode: mixed, target_missing_rate: 0.30}
+  cmapss_fd001:
+    dataset: cmapss_fd001
+    history_len: 50
+    pred_len: 10
+    stride: 1
+    conditions:
+      - {condition_id: prob_mixed_030, missing_mode: mixed, target_missing_rate: 0.30}
+  cmapss_fd002:
+    dataset: cmapss_fd002
+    history_len: 50
+    pred_len: 10
+    stride: 1
+    conditions:
+      - {condition_id: prob_mixed_030, missing_mode: mixed, target_missing_rate: 0.30}
+  cmapss_fd003:
+    dataset: cmapss_fd003
+    history_len: 50
+    pred_len: 10
+    stride: 1
+    conditions:
+      - {condition_id: prob_mixed_030, missing_mode: mixed, target_missing_rate: 0.30}
+  cmapss_fd004:
+    dataset: cmapss_fd004
+    history_len: 50
+    pred_len: 10
+    stride: 1
+    conditions:
+      - {condition_id: prob_mixed_030, missing_mode: mixed, target_missing_rate: 0.30}
+  tep_faulty:
+    dataset: tep_faulty
+    history_len: 96
+    pred_len: 24
+    stride: 12
+    recipe_override:
+      batch_size: 64
+    conditions:
+      - {condition_id: prob_mixed_030, missing_mode: mixed, target_missing_rate: 0.30}

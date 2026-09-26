@@ -1,0 +1,132 @@
+# 第三章点预测权威矩阵（V2-X0-CLOSE-T03 创建；正式执行接线归 V2-CH3-CODE-T03）
+# 硬门禁：恰好 5 个 baseline + kst_light_v2；旧 kst_light/kst_probflow 与重复
+# model_id 由 formal_matrix schema 拒绝。recipe 为初始口径，正式冻结归
+# V2-LITE-T05（冻结后更新 recipe_version 与数值）。
+schema: formal-matrix-v1
+chapter: ch3
+track: point
+matrix_id: ch3_point_single_seed_v1
+recipe_version: pending_v2_lite_t05_freeze
+selection_metric: valid_mae
+
+seeds:
+  seed: 2026
+  split_seed: 2026
+  mask_seed: 2026
+
+# 统一训练配方初始值（本章内所有模型一致；F 表第一轮固定值）
+recipe:
+  epochs: 80
+  batch_size: 128
+  learning_rate: 2.0e-4
+  weight_decay: 1.0e-4
+  scheduler: cosine
+  grad_clip_norm: 1.0
+
+models:
+  - {model_id: li_tcn, family: baseline, head_type: linear}
+  - {model_id: ff_gru, family: baseline, head_type: linear}
+  - {model_id: masked_tcn, family: baseline, head_type: linear}
+  - {model_id: gru_d, family: baseline, head_type: linear}
+  - {model_id: ode_rnn, family: baseline, head_type: linear}
+  - model_id: kst_light_v2
+    family: ours
+    head_type: mlp
+    # 本文模型初始架构（M2 主候选；V2-LITE-T05 冻结前为初始口径）
+    architecture:
+      cross_variable_mode: missing_sensor_mixer
+      mixer_layers: 2
+      hidden_dim: 64
+      n_layers: 2
+
+protocols:
+  metropt3_chrono_502030_v2:
+    dataset: metropt3_chrono_502030_v2
+    history_len: 168
+    pred_len: 24
+    stride: 60
+    ours_architecture:
+      cross_variable_mode: missing_sensor_mixer
+      mixer_layers: 2
+      hidden_dim: 64
+      n_layers: 2
+      patch_lens: [12, 24, 48]
+    recipe_override: {}
+    conditions:
+      - {condition_id: point_mixed_030, missing_mode: mixed, target_missing_rate: 0.30}
+      - {condition_id: point_random_000, missing_mode: random, target_missing_rate: 0.00}
+      - {condition_id: point_random_030, missing_mode: random, target_missing_rate: 0.30}
+      - {condition_id: point_random_070, missing_mode: random, target_missing_rate: 0.70}
+      - {condition_id: point_low_rate_030, missing_mode: low_rate, target_missing_rate: 0.30}
+      - {condition_id: point_block_offline_030, missing_mode: block_offline, target_missing_rate: 0.30}
+  cmapss_fd001:
+    dataset: cmapss_fd001
+    history_len: 50
+    pred_len: 10
+    stride: 1
+    ours_architecture:
+      cross_variable_mode: missing_sensor_mixer
+      mixer_layers: 2
+      hidden_dim: 32
+      n_layers: 1
+      patch_lens: [5, 10]
+    recipe_override: {}
+    conditions:
+      - {condition_id: point_mixed_030, missing_mode: mixed, target_missing_rate: 0.30}
+  cmapss_fd002:
+    dataset: cmapss_fd002
+    history_len: 50
+    pred_len: 10
+    stride: 1
+    ours_architecture:
+      cross_variable_mode: missing_sensor_mixer
+      mixer_layers: 2
+      hidden_dim: 48
+      n_layers: 2
+      patch_lens: [5, 10, 20]
+    recipe_override: {}
+    conditions:
+      - {condition_id: point_mixed_030, missing_mode: mixed, target_missing_rate: 0.30}
+  cmapss_fd003:
+    dataset: cmapss_fd003
+    history_len: 50
+    pred_len: 10
+    stride: 1
+    ours_architecture:
+      cross_variable_mode: missing_sensor_mixer
+      mixer_layers: 2
+      hidden_dim: 32
+      n_layers: 1
+      patch_lens: [5, 10]
+    recipe_override: {}
+    conditions:
+      - {condition_id: point_mixed_030, missing_mode: mixed, target_missing_rate: 0.30}
+  cmapss_fd004:
+    dataset: cmapss_fd004
+    history_len: 50
+    pred_len: 10
+    stride: 1
+    ours_architecture:
+      cross_variable_mode: missing_sensor_mixer
+      mixer_layers: 2
+      hidden_dim: 48
+      n_layers: 2
+      patch_lens: [5, 10, 20]
+    recipe_override: {}
+    conditions:
+      - {condition_id: point_mixed_030, missing_mode: mixed, target_missing_rate: 0.30}
+  tep_faulty:
+    dataset: tep_faulty
+    history_len: 96
+    pred_len: 24
+    stride: 12
+    ours_architecture:
+      cross_variable_mode: missing_sensor_mixer
+      mixer_layers: 2
+      hidden_dim: 64
+      n_layers: 2
+      patch_lens: [12, 24, 48]
+    recipe_override:
+      batch_size: 64
+    conditions:
+      - {condition_id: point_mixed_030, missing_mode: mixed, target_missing_rate: 0.30}

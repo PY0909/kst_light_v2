@@ -1029,3 +1029,16 @@
 - **tep_faulty 处置**：artifact 标 `eligibility=blocked_data_gate`，原因=协议未实现（归 V2-CH3-CODE-T01）且 faulty RData 在盘但默认读取器不展开；fault-free smoke 仅作 wiring 证据，不顶替 `tep_faulty` 正式验证。FD004 smoke 不代表 FD001–FD003（scope_notes 已注明，四子集独立协议归 V2-CH3-CODE-T01）。
 - **产物**：`results/pilot/x0_close/t02_cuda_smoke.json`（`evidence_status=smoke_passed`、`eligibility=tuning_only`，双机各一份）；两份 autodl-preflight.json 更新至 `c1b9ca7` 并回传。
 - **结论**：FD004/TEP 两通道在 v2 冻结环境 + CUDA 下端到端可跑、`kst_light_v2` 可学习信号正常；C0 只剩 T03（本机归档与权威配置入口，无需 GPU）。**AutoDL 实例本 Task 后即可关机**——下一个 GPU 节点是 V2-LITE-T01 的 CUDA 单 batch，之前有纯本机代码工作（T03 + V2-LITE-T01 本机部分）。
+
+## 2026-09-26（V2-X0-CLOSE-T03 完成：归档与权威配置入口；C0 收官）
+
+- **归档**（文件仅移动未修改，README 打标 `legacy_only: true` / `formal_comparison_eligible: false`）：
+  - 六个 H2 pilot run（`results/runs/`，kst_light_v2 × m2_tune_lr3e4_cosine_ep80 × 六条件，head=residual）→ `archive/h2_pilot_kst_light_v2/runs/`；README 注明仅可用于可学习性/敏感性/耗时/配方选择，且 head 口径与第三章 MLP 头不同（供 V2-CH3-SINGLE-T00 审计判定）。
+  - 旧双结构 `results/protocol/` 18 份 timeline mask → `archive/legacy_results_protocol/`；规范位置 `results/pilot/metropt3/protocol/masks/`（T01 已验证双机 SHA 一致）。
+  - `results/` 现仅剩规范 `pilot/` 结构；无旧 venv 产物与 stale preflight。
+- **权威配置入口**（TDD：15 项测试先红后绿）：
+  - 新建 `configs/ch3/point_matrix.yaml`（5 baseline + kst_light_v2 MLP 头，六协议：MetroPT 六条件 + FD001–FD004/TEP_faulty 各 mixed@0.30，统一 recipe 初始值 + 逐协议 ours_architecture/recipe_override，recipe_version=pending_v2_lite_t05_freeze）、`configs/ch4/probabilistic_matrix.yaml`（6 概率 baseline + kst_flow_v2，六 protocol-condition pair，CRPS 选择、interval 0.95/nsamples 100）、`configs/ch5/risk_matrix.yaml`（tcn_gaussian/patchtst_gaussian/profiti/kaf_profiti_joint + kst_probflow_v2 `status: planned`；注：计划文本 `kafnet_profiti_joint` 的 registry 注册名为 `kaf_profiti_joint`，矩阵按注册名声明）。
+  - 新建 `code/kaf_profiti/experiments/formal_matrix.py`：schema `formal-matrix-v1` 校验（字段、seeds、显式 recipe 字段）、各章组成硬门禁（ch3 恰好 5 baseline + kst_light_v2；ch4 ours=kst_flow_v2；ch5 ours=kst_probflow_v2 且 C0 必须 planned、若已注册反而报错）、FORBIDDEN_MODEL_IDS={kst_light, kst_probflow}、重复 model_id、registry not_implemented 拒绝、A.1 协议窗口合同（168/24/60、50/10/1×4、96/24/12）与条件集合同（ch3 MetroPT 六条件精确集；ch4/ch5 及外部协议仅 mixed@0.30）、权威路径门（load 仅接受三个入口，legacy configs/pilot 拒绝）、`expand()` 科学 key 展开（baseline 在前 ours 最后）、`assert_no_planned_for_execution`。
+  - CLI：`run_pilot_matrix.py --config`（与 --profile 互斥；C0 仅 dry-run；非 dry-run 与 legacy 路径显式报错）。--profile 默认值改为 None（显式选择或回落 fd004），行为不变。
+- **验证**：全量 `code/tests/` **406 passed / 0 failed**（391+15 新增；含 portability 3 项）；三矩阵 dry-run：ch3 `expanded=66 unique=66`（metropt 36 + fd001-4/tep 各 6）、ch4 `42`（6 pair×7）、ch5 `30`（6 pair×5，planned=['kst_probflow_v2']），全部 `instantiated_models=[]`、`test_metric_count=0`；`git diff --check` 通过；新文件无机器路径。
+- **结论**：V2-X0（C0 三 Task）全部完成，FD004/TEP 接线收尾闭合，具备进入 **V2-LITE-T01** 的资格。C0 遗留的已知缺口不变：TEP `split_sha256`/normalization 身份与 `tep_faulty` 协议实现归 V2-CH3-CODE-T01；KAFNet 系列适配归 V2-CH4-CODE-T04。

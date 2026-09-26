@@ -730,10 +730,10 @@ FD001、FD002、FD003、FD004 是四个独立正式协议。MetroPT 使用 `rand
 
 ### Task V2-X0-CLOSE-T03：归档与入口门禁
 
-- [ ] 将旧 venv 结果、旧 preflight、非本协议 pilot 移到 `archive/` 或保留在 ignored result，并写 `formal_comparison_eligible=false`；不修改 metrics JSON。
-- [ ] 创建权威配置入口：`configs/ch3/point_matrix.yaml`、`configs/ch4/probabilistic_matrix.yaml`、`configs/ch5/risk_matrix.yaml`；正式 runner 只接受这些入口。
-- [ ] 为矩阵 schema 增加硬门禁：第三章必须恰好 5 个 baseline + `kst_light_v2`，第四章必须使用 `kst_flow_v2`，第五章必须声明 `kst_probflow_v2`；旧 `kst_light`、`kst_probflow` 和重复 model_id 直接报错。C0 阶段第五章模型允许 `status=planned` 仅用于 schema dry-run，正式实例化必须等 V2-CH5-CODE-T02 注册为 `enabled`。
-- [ ] 验证六协议名称、窗口和 model_id 可展开；预期 point 矩阵 6 个模型、6 个 MetroPT 条件、4 个 FD 协议和 1 个 TEP 协议均能 dry-run，且 dry-run 不实例化 planned 模型；完成后才进入 V2-LITE-T01。
+- [x] 将旧 venv 结果、旧 preflight、非本协议 pilot 移到 `archive/` 或保留在 ignored result，并写 `formal_comparison_eligible=false`；不修改 metrics JSON。（2026-09-26：六个 H2 run → `archive/h2_pilot_kst_light_v2/`、旧双结构 `results/protocol/` 18 份 mask → `archive/legacy_results_protocol/`，两处 README 打标 `legacy_only/formal_comparison_eligible=false`，文件仅移动未修改；无旧 venv 产物与 stale preflight 残留。）
+- [x] 创建权威配置入口：`configs/ch3/point_matrix.yaml`、`configs/ch4/probabilistic_matrix.yaml`、`configs/ch5/risk_matrix.yaml`；正式 runner 只接受这些入口。（2026-09-26：`run_pilot_matrix.py --config` 仅接受三个权威路径（resolved 路径精确匹配），legacy `configs/pilot/` 路径被拒绝并提示 historical-audit-only；C0 阶段 `--config` 仅支持 dry-run。）
+- [x] 为矩阵 schema 增加硬门禁：第三章必须恰好 5 个 baseline + `kst_light_v2`，第四章必须使用 `kst_flow_v2`，第五章必须声明 `kst_probflow_v2`；旧 `kst_light`、`kst_probflow` 和重复 model_id 直接报错。C0 阶段第五章模型允许 `status=planned` 仅用于 schema dry-run，正式实例化必须等 V2-CH5-CODE-T02 注册为 `enabled`。（2026-09-26：`formal_matrix.py` 实现 schema/组成/registry/A.1 窗口与条件集校验，planned 模型若已注册会直接报错；15 项测试锁定含全部拒绝路径。）
+- [x] 验证六协议名称、窗口和 model_id 可展开；预期 point 矩阵 6 个模型、6 个 MetroPT 条件、4 个 FD 协议和 1 个 TEP 协议均能 dry-run，且 dry-run 不实例化 planned 模型；完成后才进入 V2-LITE-T01。（2026-09-26：三矩阵 dry-run 展开 66/42/30 个唯一 key（metropt 36 + 外部 5×6；6 pair×7；6 pair×5），`instantiated_models=[]`，planned 仅列出；全量 pytest 406 passed。）
 
 ## C. V2-LITE：点模型轻量化与配方冻结
 

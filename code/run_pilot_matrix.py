@@ -20,6 +20,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from kaf_profiti.experiments.formal_matrix import (  # noqa: E402
+    AUTHORITATIVE_MATRICES,
+    expand_formal_matrix,
+    load_formal_matrix,
+)
 from kaf_profiti.experiments.pilot_runner import (  # noqa: E402
     PROFILE_DATASETS,
     SMOKE_GROUPS,
@@ -34,7 +39,17 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Unified dataset-profile pilot matrix runner")
-    parser.add_argument("--profile", choices=tuple(PROFILE_DATASETS), default="fd004")
+    parser.add_argument("--profile", choices=tuple(PROFILE_DATASETS), default=None)
+    parser.add_argument(
+        "--config",
+        default=None,
+        help=(
+            "authoritative formal-matrix entry (one of: "
+            + ", ".join(sorted(AUTHORITATIVE_MATRICES.values()))
+            + "); C0 stage supports --mode dry-run only — legacy configs/pilot "
+            "matrices are historical-audit-only and are rejected"
+        ),
+    )
     parser.add_argument("--mode", choices=("dry-run", "smoke", "full", "sanity"), default="dry-run")
     parser.add_argument("--matrix", choices=("point", "probabilistic", "all"), default="all")
     parser.add_argument(
@@ -91,8 +106,62 @@ def _load_matrices(selection: str, profile: str):
     return [load_matrix(path) for path in paths]
 
 
+def _formal_dry_run(config: str) -> int:
+    """Authoritative-entry formal dry-run: expansion only, no instantiation."""
+
+    try:
+        matrix = load_formal_matrix(_REPO_ROOT / config if not Path(config).is_absolute() else config)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+    keys = expand_formal_matrix(matrix)
+    per_protocol: dict = {}
+    for key in keys:
+        per_protocol[key.protocol] = per_protocol.get(key.protocol, 0) + 1
+    print(json.dumps(
+        {
+            "matrix_id": matrix.matrix_id,
+            "chapter": matrix.chapter,
+            "track": matrix.track,
+            "matrix_sha256": matrix.matrix_sha256,
+            "selection_metric": matrix.selection_metric,
+            "recipe_version": matrix.recipe_version,
+            "seeds": matrix.seeds,
+            "model_order": [m["model_id"] for m in matrix.models],
+            "planned_models": matrix.planned_model_ids,
+            "instantiated_models": [],
+            "expanded_keys": len(keys),
+            "unique_keys": len({k.scientific_key for k in keys}),
+            "keys_per_protocol": dict(sorted(per_protocol.items())),
+            "test_metric_count": 0,
+            "scientific_keys": [k.scientific_key for k in keys],
+        },
+        ensure_ascii=False, indent=2,
+    ))
+    return 0
+
+
 def main() -> int:
     args = parse_args()
+    if args.config is not None:
+        if args.profile is not None:
+            print(
+                "--config and --profile are mutually exclusive (--config is the "
+                "formal entry; --profile is the legacy audit path)",
+                file=sys.stderr,
+            )
+            return 2
+        if args.mode != "dry-run":
+            print(
+                f"--config currently supports --mode dry-run only (got "
+                f"{args.mode!r}); formal execution wiring lands with "
+                "V2-CH3-CODE",
+                file=sys.stderr,
+            )
+            return 2
+        return _formal_dry_run(args.config)
+    if args.profile is None:
+        args.profile = "fd004"
     paths = resolve_runtime_paths(args.data_root, args.result_root, {})
     runner = PilotRunner(
         matrices=_load_matrices(args.matrix, args.profile),
