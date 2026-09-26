@@ -1053,14 +1053,18 @@ def _model_config(model, spec: PilotRunSpec) -> Dict[str, object]:
 
 
 def _optimizer_config(spec: Optional[PilotRunSpec] = None) -> Dict[str, object]:
-    is_v2 = spec is not None and spec.model_id in {"kst_light_v2", "kst_flow_v2"}
+    # V2-CH3-SINGLE-T01 fix: explicit recipe fields on the spec reach the
+    # optimizer for EVERY model. The is_v2 gate silently replaced the frozen
+    # matrix recipe (lr=3e-4 cosine) with the historical pilot default
+    # (lr=1e-3, no scheduler) for baselines. Legacy pilot specs leave these
+    # fields None and keep their historical defaults.
     config = {
         "class": "torch.optim.AdamW",
-        "lr": float(spec.learning_rate) if is_v2 and spec.learning_rate is not None else 1e-3,
-        "weight_decay": float(spec.weight_decay) if is_v2 and spec.weight_decay is not None else 1e-4,
-        "grad_clip_norm": float(spec.grad_clip_norm) if is_v2 and spec.grad_clip_norm is not None else GRAD_CLIP_NORM,
+        "lr": float(spec.learning_rate) if spec is not None and spec.learning_rate is not None else 1e-3,
+        "weight_decay": float(spec.weight_decay) if spec is not None and spec.weight_decay is not None else 1e-4,
+        "grad_clip_norm": float(spec.grad_clip_norm) if spec is not None and spec.grad_clip_norm is not None else GRAD_CLIP_NORM,
     }
-    if is_v2:
+    if spec is not None:
         config["scheduler"] = spec.scheduler or "none"
         config["patience"] = int(spec.patience) if spec.patience is not None else 0
     return config

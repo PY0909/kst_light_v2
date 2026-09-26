@@ -122,6 +122,16 @@ def _load_matrices(selection: str, profile: str):
 # V2-CH3-CODE-T03: formal matrix execution (baseline-first, resumable)
 # ---------------------------------------------------------------------------
 
+def _resolve_formal_workers(device, requested) -> int:
+    """lite_pipeline_v1 contract: 4 workers on GPU hosts, 0 otherwise."""
+
+    if isinstance(requested, str):
+        if requested == "auto":
+            return 4 if str(device) == "cuda" else 0
+        return int(requested)
+    return int(requested)
+
+
 def _formal_profile_for(protocol: str) -> str:
     if protocol == "metropt3_chrono_502030_v2":
         return "metropt3"
@@ -341,12 +351,18 @@ def _formal_execute_keys(
     run_fn=None,
     provider_factory=None,
     show_progress=None,
+    num_workers=None,
 ) -> dict:
     """Execute formal keys: baseline-first gating, verified resume, per-key
     continue-on-error, PilotRunner-shaped manifests with the formal identity."""
 
     run_fn = run_fn or _default_formal_run
-    factory = provider_factory or _formal_provider_factory(data_root, result_root, device)
+    workers = _resolve_formal_workers(
+        device, num_workers if num_workers is not None else "auto"
+    )
+    factory = provider_factory or _formal_provider_factory(
+        data_root, result_root, device, num_workers=workers,
+    )
     provider_cache: dict = {}
     summary = {
         "expected_total": len(keys),
@@ -401,13 +417,18 @@ def _formal_execute_keys(
     return summary
 
 
-def _formal_smoke(matrix: FormalMatrix, keys, result_root, data_root, device) -> dict:
+def _formal_smoke(matrix: FormalMatrix, keys, result_root, data_root, device, num_workers=None) -> dict:
     """One train batch + one valid forward per key; the test split is never
     loaded, no run directories are created."""
 
     import torch
 
-    factory = _formal_provider_factory(data_root, result_root, device)
+    factory = _formal_provider_factory(
+        data_root, result_root, device,
+        num_workers=_resolve_formal_workers(
+            device, num_workers if num_workers is not None else "auto"
+        ),
+    )
     provider_cache: dict = {}
     entries = []
     for key in keys:
@@ -539,11 +560,15 @@ def main() -> int:
         if args.mode == "dry-run":
             return _formal_dry_run(args.config)
         paths = resolve_runtime_paths(args.data_root, args.result_root, {})
+        import torch
+
+        formal_device = args.device if args.device != "auto" else (
+            "cuda" if torch.cuda.is_available() else "cpu"
+        )
         if args.mode == "smoke":
             report = _formal_smoke(
                 matrix, keys, result_root=paths.output_root, data_root=paths.data_root,
-                device=args.device if args.device != "auto" else
-                ("cuda" if __import__("torch").cuda.is_available() else "cpu"),
+                device=formal_device, num_workers=args.num_workers,
             )
             print(json.dumps({
                 "event": "formal-smoke",
@@ -559,8 +584,7 @@ def main() -> int:
             summary = _formal_execute_keys(
                 matrix, keys,
                 result_root=paths.output_root, data_root=paths.data_root,
-                device=args.device if args.device != "auto" else
-                ("cuda" if __import__("torch").cuda.is_available() else "cpu"),
+                device=formal_device, num_workers=args.num_workers,
             )
             print(json.dumps(summary, ensure_ascii=False, indent=2))
             return 0 if not summary["failed"] and not summary["gate_blocked"] else 1

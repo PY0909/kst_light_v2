@@ -77,6 +77,48 @@ def _fake_result(spec):
     }
 
 
+def test_optimizer_config_honors_matrix_recipe_for_baselines():
+    """V2-CH3-SINGLE-T01 fix: the frozen matrix recipe must reach the optimizer
+    for EVERY model, not only the v2 own models (the historical pilot default
+    lr=1e-3 must never silently override the frozen recipe)."""
+
+    from kaf_profiti.experiments.pilot_runner import PilotRunSpec, _optimizer_config
+
+    baseline_spec = PilotRunSpec(
+        key="k", track="point", matrix_name="m", dataset="metropt3_chrono_502030_v2",
+        model_id="li_tcn", head_type="linear", family="baseline",
+        condition_id="point_mixed_030", missing_mode="mixed", target_missing_rate=0.3,
+        seed=2026, split_seed=2026, mask_seed=2026, history_len=168, pred_len=24,
+        stride=60, epochs=80, batch_size=128, hidden_dim=64,
+        learning_rate=0.0003, weight_decay=0.0001, scheduler="cosine",
+        patience=0, grad_clip_norm=1.0,
+    )
+    config = _optimizer_config(baseline_spec)
+    assert config["lr"] == 3e-4
+    assert config["weight_decay"] == 1e-4
+    assert config["grad_clip_norm"] == 1.0
+    assert config["scheduler"] == "cosine"
+    assert config["patience"] == 0
+
+    # legacy pilot specs (no recipe fields) keep their historical defaults
+    legacy = baseline_spec.__class__(**{**baseline_spec.__dict__,
+                                        "learning_rate": None, "weight_decay": None,
+                                        "scheduler": None, "patience": None,
+                                        "grad_clip_norm": None})
+    legacy_config = _optimizer_config(legacy)
+    assert legacy_config["lr"] == 1e-3
+    assert legacy_config["weight_decay"] == 1e-4
+
+
+def test_formal_worker_resolution():
+    from run_pilot_matrix import _resolve_formal_workers
+
+    assert _resolve_formal_workers("cuda", "auto") == 4
+    assert _resolve_formal_workers("cpu", "auto") == 0
+    assert _resolve_formal_workers("cuda", "2") == 2
+    assert _resolve_formal_workers("cpu", 0) == 0
+
+
 def test_formal_profile_mapping_covers_six_protocols():
     assert _formal_profile_for("metropt3_chrono_502030_v2") == "metropt3"
     assert _formal_profile_for("cmapss_fd001") == "fd001"
