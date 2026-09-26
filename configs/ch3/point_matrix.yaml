@@ -1,12 +1,16 @@
-# 第三章点预测权威矩阵（V2-X0-CLOSE-T03 创建；正式执行接线归 V2-CH3-CODE-T03）
+# 第三章点预测权威矩阵（V2-X0-CLOSE-T03 创建；V2-LITE-T05 冻结配方；正式执行接线归 V2-CH3-CODE-T03）
 # 硬门禁：恰好 5 个 baseline + kst_light_v2；旧 kst_light/kst_probflow 与重复
-# model_id 由 formal_matrix schema 拒绝。recipe 为初始口径，正式冻结归
-# V2-LITE-T05（冻结后更新 recipe_version 与数值）。
+# model_id 由 formal_matrix schema 拒绝。
+# 冻结依据（validation-only 证据链）：G1-G4 与 A1 淘汰（09-22）、M1-M4 单因素淘汰赛
+# 中 M2 唯一通过 A1×1.02 门槛（50ep val 0.2215）、H2 六条件确认 M2+AdamW 3e-4+cosine
+# 80ep（中心条件 val 0.2116、六条件平均 val 0.2111）。MetroPT 为主配方（覆盖
+# learning_rate/epochs）；FD/TEP 为 F 表第一轮初始值（数据集特定调参归
+# V2-CH3-SINGLE-T03）。
 schema: formal-matrix-v1
 chapter: ch3
 track: point
 matrix_id: ch3_point_single_seed_v1
-recipe_version: pending_v2_lite_t05_freeze
+recipe_version: ch3_lite_freeze_v1
 selection_metric: valid_mae
 
 seeds:
@@ -14,14 +18,15 @@ seeds:
   split_seed: 2026
   mask_seed: 2026
 
-# 统一训练配方初始值（本章内所有模型一致；F 表第一轮固定值）
+# 统一训练配方（本章内所有模型一致；MetroPT 覆盖值见 metropt recipe_override）
 recipe:
-  epochs: 80
+  epochs: 50
   batch_size: 128
-  learning_rate: 2.0e-4
-  weight_decay: 1.0e-4
+  learning_rate: 0.0002
+  weight_decay: 0.0001
   scheduler: cosine
   grad_clip_norm: 1.0
+  patience: 0
 
 models:
   - {model_id: li_tcn, family: baseline, head_type: linear}
@@ -32,12 +37,20 @@ models:
   - model_id: kst_light_v2
     family: ours
     head_type: mlp
-    # 本文模型初始架构（M2 主候选；V2-LITE-T05 冻结前为初始口径）
+    # 本文模型冻结架构 = M2/H2 证据配方（V2-LITE-T05）
     architecture:
       cross_variable_mode: missing_sensor_mixer
       mixer_layers: 2
+      mixer_relation_bias: true
+      mixer_relation_scale: 1.0
+      mixer_freshness_scale: 1.0
       hidden_dim: 64
       n_layers: 2
+      n_heads: 2
+      kernel_count: 4
+      preconv_dim: 8
+      te_dim: 10
+      freshness_tau: 24.0
 
 protocols:
   metropt3_chrono_502030_v2:
@@ -48,10 +61,20 @@ protocols:
     ours_architecture:
       cross_variable_mode: missing_sensor_mixer
       mixer_layers: 2
+      mixer_relation_bias: true
+      mixer_relation_scale: 1.0
+      mixer_freshness_scale: 1.0
       hidden_dim: 64
       n_layers: 2
+      n_heads: 2
+      kernel_count: 4
+      preconv_dim: 8
+      te_dim: 10
+      freshness_tau: 24.0
       patch_lens: [12, 24, 48]
-    recipe_override: {}
+    recipe_override:
+      epochs: 80
+      learning_rate: 0.0003
     conditions:
       - {condition_id: point_mixed_030, missing_mode: mixed, target_missing_rate: 0.30}
       - {condition_id: point_random_000, missing_mode: random, target_missing_rate: 0.00}
@@ -67,8 +90,16 @@ protocols:
     ours_architecture:
       cross_variable_mode: missing_sensor_mixer
       mixer_layers: 2
+      mixer_relation_bias: true
+      mixer_relation_scale: 1.0
+      mixer_freshness_scale: 1.0
       hidden_dim: 32
       n_layers: 1
+      n_heads: 2
+      kernel_count: 4
+      preconv_dim: 8
+      te_dim: 10
+      freshness_tau: 24.0
       patch_lens: [5, 10]
     recipe_override: {}
     conditions:
@@ -81,8 +112,16 @@ protocols:
     ours_architecture:
       cross_variable_mode: missing_sensor_mixer
       mixer_layers: 2
+      mixer_relation_bias: true
+      mixer_relation_scale: 1.0
+      mixer_freshness_scale: 1.0
       hidden_dim: 48
       n_layers: 2
+      n_heads: 2
+      kernel_count: 4
+      preconv_dim: 8
+      te_dim: 10
+      freshness_tau: 24.0
       patch_lens: [5, 10, 20]
     recipe_override: {}
     conditions:
@@ -95,8 +134,16 @@ protocols:
     ours_architecture:
       cross_variable_mode: missing_sensor_mixer
       mixer_layers: 2
+      mixer_relation_bias: true
+      mixer_relation_scale: 1.0
+      mixer_freshness_scale: 1.0
       hidden_dim: 32
       n_layers: 1
+      n_heads: 2
+      kernel_count: 4
+      preconv_dim: 8
+      te_dim: 10
+      freshness_tau: 24.0
       patch_lens: [5, 10]
     recipe_override: {}
     conditions:
@@ -109,8 +156,16 @@ protocols:
     ours_architecture:
       cross_variable_mode: missing_sensor_mixer
       mixer_layers: 2
+      mixer_relation_bias: true
+      mixer_relation_scale: 1.0
+      mixer_freshness_scale: 1.0
       hidden_dim: 48
       n_layers: 2
+      n_heads: 2
+      kernel_count: 4
+      preconv_dim: 8
+      te_dim: 10
+      freshness_tau: 24.0
       patch_lens: [5, 10, 20]
     recipe_override: {}
     conditions:
@@ -123,8 +178,16 @@ protocols:
     ours_architecture:
       cross_variable_mode: missing_sensor_mixer
       mixer_layers: 2
+      mixer_relation_bias: true
+      mixer_relation_scale: 1.0
+      mixer_freshness_scale: 1.0
       hidden_dim: 64
       n_layers: 2
+      n_heads: 2
+      kernel_count: 4
+      preconv_dim: 8
+      te_dim: 10
+      freshness_tau: 24.0
       patch_lens: [12, 24, 48]
     recipe_override:
       batch_size: 64

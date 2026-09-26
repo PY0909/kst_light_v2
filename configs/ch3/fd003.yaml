@@ -1,0 +1,20 @@
+# V2-LITE-T05 冻结：C-MAPSS fd003 第三章外部验证初始配方（F 表第一轮固定值）
+# 数据集特定 validation-only 调参归 V2-CH3-SINGLE-T03（F 表搜索空间，不碰 test）。
+experiment_id: ch3_fd003
+dataset: cmapss_fd003
+model: kst_light_v2
+seed: 2026
+split_seed: 2026
+mask_seed: 2026
+history_len: 50
+pred_len: 10
+stride: 1
+missing_mode: mixed
+target_missing_rate: 0.30
+epochs: 50
+batch_size: 128
+hidden_dim: 32
+head_type: mlp
+run_level: formal
+max_train_batches: null
+max_eval_batches: null

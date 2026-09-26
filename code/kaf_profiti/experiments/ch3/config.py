@@ -10,7 +10,19 @@ import yaml
 
 
 CORE_SEEDS = frozenset({2026, 2027, 2028})
-DATASETS = frozenset({"metropt3_chrono_502030", "cmapss_fd004", "tep"})
+# V2-LITE-T05: the authoritative six-protocol set joins the whitelist
+# (A.1 contract); the three legacy ids remain for the two historical
+# external YAMLs.
+DATASETS = frozenset({
+    "metropt3_chrono_502030",
+    "metropt3_chrono_502030_v2",
+    "cmapss_fd001",
+    "cmapss_fd002",
+    "cmapss_fd003",
+    "cmapss_fd004",
+    "tep",
+    "tep_faulty",
+})
 MISSING_MODES = frozenset({"random", "low_rate", "block_offline", "mixed"})
 HEAD_TYPES = frozenset({"linear", "mlp"})
 RUN_LEVELS = frozenset({"smoke", "tuning", "pilot", "formal", "profile"})

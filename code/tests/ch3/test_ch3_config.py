@@ -98,8 +98,9 @@ def test_yaml_loads_tracked_formal_configs_and_merges_overrides():
     override = loaded[0].with_overrides({"seed": 2027, "mask_seed": 2027})
 
     assert [config.run_level for config in loaded] == ["formal", "formal", "formal"]
+    # V2-LITE-T05: metropt_main now pins the authoritative v2 protocol id
     assert [config.dataset for config in loaded] == [
-        "metropt3_chrono_502030",
+        "metropt3_chrono_502030_v2",
         "cmapss_fd004",
         "tep",
     ]
