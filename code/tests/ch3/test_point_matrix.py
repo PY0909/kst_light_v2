@@ -230,6 +230,20 @@ def test_validator_passes_fabricated_fd001_group(tmp_path: Path):
     assert verdict["fairness_mismatch"] == 0
 
 
+def test_validator_condition_and_model_filters_scope_expected_keys(tmp_path: Path):
+    matrix = _matrix()
+    keys = [k for k in _fd001_keys(matrix) if k.family == "baseline"]
+    for key in keys:
+        _fabricate_run(tmp_path, key, matrix)
+    verdict = validate_formal_results(
+        matrix, tmp_path, protocols={"cmapss_fd001"},
+        condition_ids={"point_mixed_030"}, model_ids={k.model_id for k in keys},
+    )
+    assert verdict["expected"] == 5
+    assert verdict["completed"] == 5
+    assert verdict["missing"] == []
+
+
 def test_validator_flags_missing_fairness_nonfinite_and_test_count(tmp_path: Path):
     matrix = _matrix()
     keys = _fd001_keys(matrix)

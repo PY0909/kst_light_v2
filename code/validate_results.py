@@ -91,11 +91,17 @@ def _check_key(key, matrix, result_root: Path):
     return issues, manifest
 
 
-def validate_formal_results(matrix, result_root, protocols=None) -> dict:
+def validate_formal_results(
+    matrix, result_root, protocols=None, condition_ids=None, model_ids=None,
+) -> dict:
     """Validate the expected key set of one authoritative matrix."""
 
     result_root = Path(result_root)
     keys = expand_formal_results_keys(matrix, protocols)
+    if condition_ids:
+        keys = [key for key in keys if key.condition_id in set(condition_ids)]
+    if model_ids:
+        keys = [key for key in keys if key.model_id in set(model_ids)]
     missing, failed = [], []
     test_count_errors = 0
     nonfinite = 0
@@ -176,6 +182,8 @@ def main() -> int:
     )
     parser.add_argument("--result-root", default=None)
     parser.add_argument("--protocol", action="append", default=None)
+    parser.add_argument("--condition-id", action="append", default=None)
+    parser.add_argument("--model-id", action="append", default=None)
     args = parser.parse_args()
 
     from kaf_profiti.experiments.runtime_paths import resolve_runtime_paths
@@ -189,6 +197,8 @@ def main() -> int:
     verdict = validate_formal_results(
         matrix, paths.output_root,
         protocols=set(args.protocol) if args.protocol else None,
+        condition_ids=set(args.condition_id) if args.condition_id else None,
+        model_ids=set(args.model_id) if args.model_id else None,
     )
     print(json.dumps(verdict, ensure_ascii=False, indent=2))
     return 0 if verdict["ok"] else 1
