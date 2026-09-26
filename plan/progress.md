@@ -1017,3 +1017,15 @@
 - **跨机比对**：本机以 `--compare` 重建并比对，fd004 与 metropt3 均 `identity_sections_match`——git commit（`5d4403c`）、code_fingerprint、两矩阵 SHA、数据集文件 SHA、协议身份（split/raw/partition/timeline/window_catalog/normalization/time_scale/target/evaluator）全部一致；metropt3 三份 mask bundle（v3_train/valid/test_mixed_0.30_seed2026.npz）内容 SHA 跨机逐字节一致，再次验证 mask 生成跨机确定性。
 - **结论**：V2-X0-CLOSE-T01 三项 checkbox 全部满足并勾选；本机与 AutoDL 无卡身份链闭合，具备进入 V2-X0-CLOSE-T02（AutoDL 有卡 CUDA smoke）的资格。GPU 训练门禁：换有卡实例后须在 `5d4403c`（或更新的 clean commit）重新生成 local/remote preflight 并比对通过。
 - **产物**：`results/pilot/fd004/environment/{local,autodl}-preflight.json`、`results/pilot/metropt3/environment/{local,autodl}-preflight.json`、远端 mask bundle 三份（数据盘 `results/pilot/metropt3/protocol/masks/metropt3_chrono_502030_v2/`）。
+
+## 2026-09-26（V2-X0-CLOSE-T02 完成：FD004/TEP 接线 CUDA smoke）
+
+- **GPU 门禁前置**：实例切换有卡模式（同容器，clone/数据/mask bundle 全保留）；pull 至 `c1b9ca7`（clean）；双机重新生成 preflight 并比对——fd004 与 metropt3 均 `identity_sections_match`（metropt3 因 mask bundle 缓存于数据盘，远端重建由 105 分钟降为秒级）。
+- **CUDA smoke**（RTX 3090 24GB，torch 2.5.1+cu124，seed=2026，M2 主候选架构 `missing_sensor_mixer×2`、hidden=64；FD004 patch `(5,10)`、TEP patch `(12,24,48)`，贴合计划 F 表各数据集起点且适配窗口长度）：
+  - FD004（50/10/1，split_seed=2026）：21 传感器/3 工况，train batch `[8,50,21]`，loss **0.6101** finite，单步 AdamW 参数更新，valid `predict_point` shape `[8,210]` 正确且 finite；参数量 240,946。
+  - TEP（96/24/12，split_seed=2026，fault-free 通道）：52 传感器/11 工况，train batch `[8,96,52]`，loss **0.5865** finite，参数更新，valid shape `[8,1248]` 正确；参数量 249,056。
+  - `test_metric_count=0`（test loader 从未构造）；峰值显存 95.5MB。
+  - 执行方式：无仓库改动的 inline 脚本（`build_model`+`create_protocol_datasets`+`IndustrialCollator` 复用 runner 真源），脚本不入库，artifact 由程序写入。
+- **tep_faulty 处置**：artifact 标 `eligibility=blocked_data_gate`，原因=协议未实现（归 V2-CH3-CODE-T01）且 faulty RData 在盘但默认读取器不展开；fault-free smoke 仅作 wiring 证据，不顶替 `tep_faulty` 正式验证。FD004 smoke 不代表 FD001–FD003（scope_notes 已注明，四子集独立协议归 V2-CH3-CODE-T01）。
+- **产物**：`results/pilot/x0_close/t02_cuda_smoke.json`（`evidence_status=smoke_passed`、`eligibility=tuning_only`，双机各一份）；两份 autodl-preflight.json 更新至 `c1b9ca7` 并回传。
+- **结论**：FD004/TEP 两通道在 v2 冻结环境 + CUDA 下端到端可跑、`kst_light_v2` 可学习信号正常；C0 只剩 T03（本机归档与权威配置入口，无需 GPU）。**AutoDL 实例本 Task 后即可关机**——下一个 GPU 节点是 V2-LITE-T01 的 CUDA 单 batch，之前有纯本机代码工作（T03 + V2-LITE-T01 本机部分）。

@@ -724,9 +724,9 @@ FD001、FD002、FD003、FD004 是四个独立正式协议。MetroPT 使用 `rand
 
 ### Task V2-X0-CLOSE-T02：FD004 与 TEP 接线 smoke
 
-- [ ] AutoDL 有卡只运行 `kst_light_v2` 单 batch CUDA smoke，验证 FD004 和 `tep_faulty` 的通道、窗口、loss finite、参数更新和 `test_metric_count=0`。
-- [ ] 若 TEP faulty 数据不可用，写入 `blocked_data_gate` 和原因，禁止用 fault-free 结果代替；FD004 smoke 不能代表 FD001–FD003。
-- [ ] 结果标记 `interface_only` 或 `smoke_passed`，不进入第三章、第四章或第五章表格。
+- [x] AutoDL 有卡只运行 `kst_light_v2` 单 batch CUDA smoke，验证 FD004 和 `tep_faulty` 的通道、窗口、loss finite、参数更新和 `test_metric_count=0`。（2026-09-26：RTX 3090 @ `c1b9ca7`，M2 架构 missing_sensor_mixer×2；FD004 loss 0.610 / TEP loss 0.587 均 finite、参数更新、valid 前向 shape 正确、test_metric_count=0，峰值显存 95.5MB；`tep_faulty` 协议未实现，本 smoke 的 TEP 通道为 fault-free wiring 验证。）
+- [x] 若 TEP faulty 数据不可用，写入 `blocked_data_gate` 和原因，禁止用 fault-free 结果代替；FD004 smoke 不能代表 FD001–FD003。（2026-09-26：artifact 中 `tep_faulty` 已标 `blocked_data_gate` + 原因（协议未实现归 V2-CH3-CODE-T01，faulty RData 在盘但读取器不展开）；FD 范围说明已写入 artifact scope_notes。）
+- [x] 结果标记 `interface_only` 或 `smoke_passed`，不进入第三章、第四章或第五章表格。（2026-09-26：`results/pilot/x0_close/t02_cuda_smoke.json` 标 `evidence_status=smoke_passed`、`eligibility=tuning_only`。）
 
 ### Task V2-X0-CLOSE-T03：归档与入口门禁
 
