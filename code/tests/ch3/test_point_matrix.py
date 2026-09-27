@@ -178,6 +178,38 @@ def test_execute_writes_verified_manifests_and_resumes(tmp_path: Path):
     assert second["executed"] == 0 and second["resumed"] == 6
 
 
+def test_ours_only_execution_sees_group_baselines(tmp_path: Path):
+    """V2-CH3-SINGLE-T02 fix: gating must consult the FULL matrix expansion —
+    running only the ours key (e.g. --family ours) must still find the five
+    verified baseline references of its group instead of blocking on an
+    execution-filtered empty group."""
+
+    matrix = _matrix()
+    keys = _fd001_keys(matrix)
+
+    def run_fn(spec, provider, device):
+        return _fake_result(spec)
+
+    # first pass: baselines only, ours excluded from the list
+    baselines = [k for k in keys if k.family == "baseline"]
+    first = _formal_execute_keys(
+        matrix, baselines, result_root=tmp_path, data_root=tmp_path,
+        device="cpu", run_fn=run_fn,
+        provider_factory=lambda **kwargs: _FakeProvider(**kwargs),
+    )
+    assert first["executed"] == 5 and first["gate_blocked"] == []
+
+    # second pass: ONLY the ours key in the execution list
+    ours = [k for k in keys if k.family == "ours"]
+    second = _formal_execute_keys(
+        matrix, ours, result_root=tmp_path, data_root=tmp_path,
+        device="cpu", run_fn=run_fn,
+        provider_factory=lambda **kwargs: _FakeProvider(**kwargs),
+    )
+    assert second["gate_blocked"] == []
+    assert second["executed"] == 1
+
+
 def test_baseline_first_gate_blocks_ours(tmp_path: Path):
     matrix = _matrix()
     keys = _fd001_keys(matrix)

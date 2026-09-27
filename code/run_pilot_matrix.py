@@ -371,6 +371,15 @@ def _formal_execute_keys(
         "failed": [],
         "gate_blocked": [],
     }
+    # Baseline-first gating is derived from the FULL matrix expansion, never
+    # from the (possibly filtered) execution list: running only the ours key
+    # must still see the verified baseline references of its group.
+    baseline_siblings: dict = {}
+    for expanded in expand_formal_matrix(matrix):
+        if expanded.family == "baseline":
+            baseline_siblings.setdefault(
+                (expanded.protocol, expanded.condition_id), []
+            ).append(expanded)
     completed_groups: set = set()
     for key in keys:
         manifest_path = _formal_manifest_path(result_root, key)
@@ -388,8 +397,18 @@ def _formal_execute_keys(
         if key.family == "ours":
             group = (key.protocol, key.condition_id)
             if group not in completed_groups:
-                summary["gate_blocked"].append(key.scientific_key)
-                continue
+                siblings = baseline_siblings.get(group, [])
+                gate_open = bool(siblings) and all(
+                    _formal_run_verified(
+                        _formal_manifest_path(result_root, sibling), sibling, matrix
+                    )
+                    for sibling in siblings
+                )
+                if gate_open:
+                    completed_groups.add(group)
+                else:
+                    summary["gate_blocked"].append(key.scientific_key)
+                    continue
         provider_key = (
             key.protocol, condition["missing_mode"],
             float(condition["target_missing_rate"]),
