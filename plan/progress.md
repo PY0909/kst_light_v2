@@ -1153,3 +1153,20 @@
 - **validator 门禁**：expected=5 / completed=5 / nonfinite=0 / fairness_mismatch=0 / test_count_errors=0 / **ok=true**。期间修正 validator 的 metrics 形状缺陷（读真实扁平 payload：mae/rmse 顶层；嵌套 "point" 仅兼容保留，测试同步更新，3 passed）。
 - **产物**：本机 `results/pilot/metropt3/runs/`（5 run 全件）+ 训练日志；远端数据盘同步留存。
 - **T02 就绪**：go/no-go 对照基准 = 最优 baseline test MAE **0.2578**（li_tcn）；kst_light_v2 冻结配方 run 待执行（~20 分钟 GPU）。**实例仍开机**——建议顺势完成 T02 后再关机。
+
+## 2026-09-27（V2-CH3-SINGLE-T02 完成：中心条件本文模型与 go/no-go——判定 GO）
+
+- **执行链**：pull `f096a67`（含门禁修复）→ metropt3 preflight 双机 `identity_sections_match` → ours 正式 run（80ep×24.4s/ep + 单次 test，共约 33 分钟）。首个 T03 执行器门禁缺陷在此暴露并修复：baseline-first 判定此前从**执行过滤后的 key 列表**累积完成组，`--family ours` 时组为空 → 误拦（gate_blocked）；修复为从**全矩阵展开**取同 (protocol, condition) 的 baseline 兄弟键逐个验签（与执行过滤解耦），回归测试锁定（先红后绿，全量 452 passed）。
+- **中心条件六 run 终局**（validator：expected=6/completed=6/nonfinite=0/fairness=0/test_count=0 误/ok=true）：
+
+  | model | valid MAE | test MAE | test RMSE | params | train | infer |
+  |---|---:|---:|---:|---:|---:|---:|
+  | **kst_light_v2** | **0.2039** | **0.2131** | **0.5465** | 240,218 | 1959s | 7.20s |
+  | li_tcn | 0.3147 | 0.2578 | 0.5664 | 111,208 | 4792s | — |
+  | ff_gru | 0.3172 | 0.2746 | 0.5659 | 27,816 | 1155s | — |
+  | ode_rnn | 0.3686 | 0.2850 | 0.6205 | 41,576 | 1226s | — |
+  | masked_tcn | 0.3500 | 0.2853 | 0.5623 | 111,208 | 1147s | — |
+  | gru_d | 0.4784 | 0.4082 | 0.6918 | 27,631 | 1163s | — |
+
+- **go/no-go：GO**（`plan/ch3_central_go_no_go.json`，schema ch3-central-go-no-go-v1）：主指标第一路径直接达标——test MAE 全场最低，领先最优 baseline（li_tcn）**17.3%**；RMSE 同为全场最低；finite/fairness/test-count 门禁全过。与 H2 旧 run（0.2266，residual 口径）相比，MLP 冻结口径重跑改善 6.3%。预注册准则与六 run 身份链（共享 split `eb7b957c`/mask `ed1c0695`/matrix `6e73fbf0`）完整入档；code fingerprint 跨 commit 差异如实注明（62e4c09→f096a67 仅 validator/tests/docs 变更，训练路径代码一致）。
+- **放行**：T03（外部五协议：FD001–FD004 baseline reference + validation-only 调参 + TEP）与 T04（MetroPT 其余五条件 30 runs）解锁。单种子 go/no-go 为工程诊断口径，不作模型优越性的统计结论（多 seed 阶段才做正式比较）。

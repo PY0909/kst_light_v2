@@ -1,0 +1,123 @@
+{
+  "schema": "ch3-central-go-no-go-v1",
+  "generated_at": "2026-09-27",
+  "protocol": "metropt3_chrono_502030_v2",
+  "condition": "point_mixed_030",
+  "preregistered_criteria": {
+    "primary": "ours test MAE is the lowest among all six runs, OR ours <= best baseline * 1.02 with a clear parameter-count or training-time advantage",
+    "gates": [
+      "all test RMSE finite and non-negative",
+      "fairness: identical split/mask/matrix SHA across all six runs",
+      "test_evaluation_count == 1 for every run",
+      "no test-metric-driven tuning of the frozen recipe"
+    ]
+  },
+  "ours": {
+    "run_id": "metropt3_chrono_502030_v2|point|kst_light_v2|mlp|point_mixed_030|2026",
+    "family": "ours",
+    "valid_mae": 0.20390594299507636,
+    "test_mae": 0.21310122029922882,
+    "test_rmse": 0.5465390431909332,
+    "parameter_count": 240218,
+    "train_seconds": 1959.0656816512346,
+    "inference_time_sec": 7.202948801219463,
+    "test_evaluation_count": 1,
+    "protocol_split_sha256": "eb7b957c983972c6bdc01ce03018bea2119b4afabf914699694dcf5cae6658cb",
+    "protocol_mask_sha_train": "ed1c06954f0859d9b1667bc2a8df0a61b756b26a8936b6e2cf6fe9594f7bc06b",
+    "matrix_sha256": "6e73fbf02eecd374888eb887c51a1184eccc5ef4e324e8786d8d44a804008fed",
+    "code_fingerprint": "8b58586082f0155816851a7f15e123a1a86c55cf5f3624f497f97e5643a09af4"
+  },
+  "baselines": {
+    "ff_gru": {
+      "run_id": "metropt3_chrono_502030_v2|point|ff_gru|linear|point_mixed_030|2026",
+      "family": "baseline",
+      "valid_mae": 0.3171716671096517,
+      "test_mae": 0.2746332123903574,
+      "test_rmse": 0.5658804093960454,
+      "parameter_count": 27816,
+      "train_seconds": 1155.119412459433,
+      "inference_time_sec": 6.3019049018621445,
+      "test_evaluation_count": 1,
+      "protocol_split_sha256": "eb7b957c983972c6bdc01ce03018bea2119b4afabf914699694dcf5cae6658cb",
+      "protocol_mask_sha_train": "ed1c06954f0859d9b1667bc2a8df0a61b756b26a8936b6e2cf6fe9594f7bc06b",
+      "matrix_sha256": "6e73fbf02eecd374888eb887c51a1184eccc5ef4e324e8786d8d44a804008fed",
+      "code_fingerprint": "e654d0e8c9c590486436c873abcd7addeb5052f837e378653261f169ad471394"
+    },
+    "gru_d": {
+      "run_id": "metropt3_chrono_502030_v2|point|gru_d|linear|point_mixed_030|2026",
+      "family": "baseline",
+      "valid_mae": 0.4783652605863731,
+      "test_mae": 0.40820211961452624,
+      "test_rmse": 0.6917537669132945,
+      "parameter_count": 27631,
+      "train_seconds": 1163.298016242683,
+      "inference_time_sec": 6.227374814450741,
+      "test_evaluation_count": 1,
+      "protocol_split_sha256": "eb7b957c983972c6bdc01ce03018bea2119b4afabf914699694dcf5cae6658cb",
+      "protocol_mask_sha_train": "ed1c06954f0859d9b1667bc2a8df0a61b756b26a8936b6e2cf6fe9594f7bc06b",
+      "matrix_sha256": "6e73fbf02eecd374888eb887c51a1184eccc5ef4e324e8786d8d44a804008fed",
+      "code_fingerprint": "e654d0e8c9c590486436c873abcd7addeb5052f837e378653261f169ad471394"
+    },
+    "li_tcn": {
+      "run_id": "metropt3_chrono_502030_v2|point|li_tcn|linear|point_mixed_030|2026",
+      "family": "baseline",
+      "valid_mae": 0.3147307162151507,
+      "test_mae": 0.25776903200947526,
+      "test_rmse": 0.5663792066517064,
+      "parameter_count": 111208,
+      "train_seconds": 4791.617814689875,
+      "inference_time_sec": 25.068401262164116,
+      "test_evaluation_count": 1,
+      "protocol_split_sha256": "eb7b957c983972c6bdc01ce03018bea2119b4afabf914699694dcf5cae6658cb",
+      "protocol_mask_sha_train": "ed1c06954f0859d9b1667bc2a8df0a61b756b26a8936b6e2cf6fe9594f7bc06b",
+      "matrix_sha256": "6e73fbf02eecd374888eb887c51a1184eccc5ef4e324e8786d8d44a804008fed",
+      "code_fingerprint": "e654d0e8c9c590486436c873abcd7addeb5052f837e378653261f169ad471394"
+    },
+    "masked_tcn": {
+      "run_id": "metropt3_chrono_502030_v2|point|masked_tcn|linear|point_mixed_030|2026",
+      "family": "baseline",
+      "valid_mae": 0.3500032193500157,
+      "test_mae": 0.28533731958316155,
+      "test_rmse": 0.5623175703200833,
+      "parameter_count": 111208,
+      "train_seconds": 1147.0242640674114,
+      "inference_time_sec": 6.263827979564667,
+      "test_evaluation_count": 1,
+      "protocol_split_sha256": "eb7b957c983972c6bdc01ce03018bea2119b4afabf914699694dcf5cae6658cb",
+      "protocol_mask_sha_train": "ed1c06954f0859d9b1667bc2a8df0a61b756b26a8936b6e2cf6fe9594f7bc06b",
+      "matrix_sha256": "6e73fbf02eecd374888eb887c51a1184eccc5ef4e324e8786d8d44a804008fed",
+      "code_fingerprint": "e654d0e8c9c590486436c873abcd7addeb5052f837e378653261f169ad471394"
+    },
+    "ode_rnn": {
+      "run_id": "metropt3_chrono_502030_v2|point|ode_rnn|linear|point_mixed_030|2026",
+      "family": "baseline",
+      "valid_mae": 0.36859891378777704,
+      "test_mae": 0.28498902239052754,
+      "test_rmse": 0.6204897335158295,
+      "parameter_count": 41576,
+      "train_seconds": 1225.5758163630962,
+      "inference_time_sec": 6.364946939051151,
+      "test_evaluation_count": 1,
+      "protocol_split_sha256": "eb7b957c983972c6bdc01ce03018bea2119b4afabf914699694dcf5cae6658cb",
+      "protocol_mask_sha_train": "ed1c06954f0859d9b1667bc2a8df0a61b756b26a8936b6e2cf6fe9594f7bc06b",
+      "matrix_sha256": "6e73fbf02eecd374888eb887c51a1184eccc5ef4e324e8786d8d44a804008fed",
+      "code_fingerprint": "e654d0e8c9c590486436c873abcd7addeb5052f837e378653261f169ad471394"
+    }
+  },
+  "best_baseline": {
+    "model": "li_tcn",
+    "test_mae": 0.25776903200947526
+  },
+  "gate_results": {
+    "primary_best": true,
+    "noninferior_within_2pct": true,
+    "efficiency_advantage": false,
+    "finite": true,
+    "fairness": true,
+    "test_count": true
+  },
+  "decision": "go",
+  "decision_rationale": "kst_light_v2 test MAE 0.2131 is the lowest of all six runs (best baseline li_tcn 0.2578; margin 17.3%); test RMSE 0.5465 is also the lowest; all fairness/finite/test-count gates pass",
+  "note_code_fingerprint": "baselines executed at commit 62e4c09, ours at f096a67; the delta commits (7f5f017/f096a67) touch only validator/tests/docs, training-path code identical; protocol/matrix identity shared across all six runs",
+  "expansion": "go: V2-CH3-SINGLE-T03 (external five protocols) and T04 (remaining five MetroPT conditions) are released"
+}

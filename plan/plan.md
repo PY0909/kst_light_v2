@@ -828,10 +828,10 @@ FD001、FD002、FD003、FD004 是四个独立正式协议。MetroPT 使用 `rand
 
 ### Task V2-CH3-SINGLE-T02：中心条件本文模型与 go/no-go
 
-- [ ] 在同一中心条件和同一 mask 下运行 `kst_light_v2`，只能使用 V2-LITE 冻结配方；本文模型的 test 计数为 1，baseline reference 不得被覆盖。
-- [ ] 记录 validation MAE、test MAE/RMSE、训练/推理时间和参数量；生成 `ch3_central_go_no_go.json`。
-- [ ] 预注册 go/no-go：本文模型在中心条件的 test MAE 为所有可用 baseline 中最低，或在 MAE 不超过最优 baseline 的 2% 时同时具备明确参数量/训练效率优势；RMSE、finite、fairness 和 test-count 门禁必须全部通过。未达标只能标记 `no_go`，不得用 test 结果反向调参。
-- [ ] 只有本文模型达到上述主指标门槛且所有公平性门禁通过，才允许扩展其余条件。
+- [x] 在同一中心条件和同一 mask 下运行 `kst_light_v2`，只能使用 V2-LITE 冻结配方；本文模型的 test 计数为 1，baseline reference 不得被覆盖。（2026-09-27：RTX 3090 @ `f096a67`，冻结配方 ch3_lite_freeze_v1（M2 架构+lr3e-4/cosine/80ep），`executed=1/gate_blocked=[]`（门禁曾因执行过滤与门禁耦合误拦，修复 `f096a67`：baseline-first 改用全矩阵展开的同组兄弟键）；test_evaluation_count=1，五 baseline reference 原样未动。）
+- [x] 记录 validation MAE、test MAE/RMSE、训练/推理时间和参数量；生成 `ch3_central_go_no_go.json`。（valid MAE **0.2039**、test MAE **0.2131**、test RMSE **0.5465**、参数 240,218、train 1959s、inference 7.20s；`plan/ch3_central_go_no_go.json` 含六 run 全指标+身份链+门禁明细。）
+- [x] 预注册 go/no-go：本文模型在中心条件的 test MAE 为所有可用 baseline 中最低，或在 MAE 不超过最优 baseline 的 2% 时同时具备明确参数量/训练效率优势；RMSE、finite、fairness 和 test-count 门禁必须全部通过。未达标只能标记 `no_go`，不得用 test 结果反向调参。（**判定 GO**：test MAE 0.2131 六 run 全场最低，领先最优 baseline li_tcn 0.2578 达 17.3%（第一路径直接达标，无需非劣效分支）；RMSE 0.5465 亦全场最低；finite/fairness（六 run 共享 split/mask/matrix SHA）/test-count 全过；配方冻结未做任何 test 驱动调整。）
+- [x] 只有本文模型达到上述主指标门槛且所有公平性门禁通过，才允许扩展其余条件。（GO → V2-CH3-SINGLE-T03（外部五协议）与 T04（MetroPT 其余五条件）放行。）
 
 ### Task V2-CH3-SINGLE-T03：FD001–FD004 与 TEP 点预测单 seed（外部优先）
 
