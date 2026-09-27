@@ -210,6 +210,54 @@ def test_ours_only_execution_sees_group_baselines(tmp_path: Path):
     assert second["executed"] == 1
 
 
+def test_apply_tuning_overrides_and_write_tuning_artifact(tmp_path: Path):
+    """V2-CH3-SINGLE-T03: tuning candidates are validation-only — the spec
+    override applies, the artifact is eligibility=tuning_only with
+    test_evaluation_count=0, and it lives outside the runs/ tree."""
+
+    from run_pilot_matrix import _apply_tuning_overrides, _write_tuning_run
+
+    matrix = _matrix()
+    keys = _fd001_keys(matrix)
+    ours_key = next(k for k in keys if k.family == "ours")
+    protocol_block = matrix.protocols[ours_key.protocol]
+    condition = protocol_block["conditions"][0]
+    from run_pilot_matrix import _formal_spec
+    spec = _formal_spec(ours_key, matrix, protocol_block, condition)
+    tuned = _apply_tuning_overrides(spec, {"hidden_dim": "48", "learning_rate": "0.0001"})
+    assert tuned.hidden_dim == 48 and tuned.learning_rate == 1e-4
+    assert tuned.key == spec.key and tuned.seed == spec.seed  # identity untouched
+
+    provider = _FakeProvider()
+    result = {
+        "history": [{"epoch": 1, "train_loss": 0.5, "valid_score": 0.4}],
+        "checkpoint_bytes": b"tune-ckpt",
+        "best_valid_score": 0.4,
+        "best_epoch": 1,
+        "train_time_sec": 3.0,
+        "model_class": "KSTLightV2",
+        "optimizer_config": {"lr": 1e-4},
+        "parameter_count": 999,
+    }
+    manifest_path = _write_tuning_run(
+        tmp_path, tuned, matrix, provider, result, "cpu", tuning_id="h48_lr1e4",
+    )
+    assert "tuning" in str(manifest_path) and "runs" not in str(manifest_path).split("tuning")[0].split("pilot")[-1]
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest["run_level"] == "tuning"
+    assert manifest["eligibility"] == "tuning_only"
+    assert manifest["evidence_status"] == "full_completed"
+    assert manifest["test_evaluation_count"] == 0
+    assert manifest["tuning_id"] == "h48_lr1e4"
+    assert manifest["best_valid_score"] == 0.4
+    assert manifest["matrix_sha256"] == matrix.matrix_sha256
+    assert not (manifest_path.parent / "metrics.json").exists()
+    assert not (manifest_path.parent / "predictions.json").exists()
+
+    with pytest.raises(ValueError, match="unknown tuning override"):
+        _apply_tuning_overrides(spec, {"nonexistent_field": "1"})
+
+
 def test_baseline_first_gate_blocks_ours(tmp_path: Path):
     matrix = _matrix()
     keys = _fd001_keys(matrix)

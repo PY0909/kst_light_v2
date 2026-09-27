@@ -58,7 +58,7 @@ def parse_args() -> argparse.Namespace:
             "matrices are historical-audit-only and are rejected"
         ),
     )
-    parser.add_argument("--mode", choices=("dry-run", "smoke", "full", "sanity"), default="dry-run")
+    parser.add_argument("--mode", choices=("dry-run", "smoke", "full", "sanity", "tune"), default="dry-run")
     parser.add_argument("--matrix", choices=("point", "probabilistic", "all"), default="all")
     parser.add_argument(
         "--group",
@@ -84,6 +84,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--protocol", action="append", default=None,
         help="formal --config mode: narrow to a protocol (repeatable)",
+    )
+    parser.add_argument(
+        "--tune-set", action="append", default=None, metavar="KEY=VALUE",
+        help="tune mode: spec override for the candidate (repeatable), e.g. hidden_dim=48",
+    )
+    parser.add_argument(
+        "--tuning-id", default=None,
+        help="tune mode: candidate identifier (required, appears in the artifact key)",
     )
     parser.add_argument(
         "--force-rerun", action="store_true",
@@ -226,6 +234,175 @@ def _default_formal_run(spec, provider, device, show_progress=None):
 
         result["inference_time_sec"] = _stats.median(repeats)
     return result
+
+
+def _formal_tune_run(spec: PilotRunSpec, provider, device, show_progress=None):
+    """Validation-only full-budget trainer for dataset-specific tuning.
+
+    Same training loop, optimizer, scheduler and epoch budget as the formal
+    path (pilot_train_and_evaluate pieces), but the test split is never
+    loaded: the outcome is a best-validation checkpoint plus history. The
+    artifact is eligibility=tuning_only and can never enter formal tables.
+    """
+
+    import time
+
+    import torch
+
+    from kaf_profiti.experiments.pilot_runner import (
+        _optimizer_config,
+        _train_one_epoch,
+        _valid_score,
+    )
+
+    device = torch.device(device)
+    torch.manual_seed(spec.seed)
+    model = build_model(
+        spec, provider.num_sensors, provider.context_dim,
+        _provider_options(provider), device=device,
+    )
+    loaders = _loaders(provider, spec.batch_size, spec.seed)
+    optimizer_config = _optimizer_config(spec)
+    optimizer = torch.optim.AdamW(
+        model.parameters(),
+        lr=optimizer_config["lr"],
+        weight_decay=optimizer_config["weight_decay"],
+    )
+    scheduler = (
+        torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max(spec.epochs, 1))
+        if optimizer_config.get("scheduler") == "cosine" else None
+    )
+    history = []
+    best_state, best_score, best_epoch = None, None, None
+    train_start = time.perf_counter()
+    for epoch in range(1, spec.epochs + 1):
+        train_loss = _train_one_epoch(
+            model, loaders["train"], optimizer, device,
+            grad_clip_norm=optimizer_config["grad_clip_norm"],
+            show_progress=show_progress, epoch=epoch,
+        )
+        score = _valid_score(
+            model, loaders["valid"], device, spec.track, nsamples=spec.nsamples,
+            show_progress=show_progress, desc=f"valid e{epoch}",
+        )
+        history.append({"epoch": epoch, "train_loss": train_loss, "valid_score": score})
+        if best_score is None or score < best_score:
+            best_score, best_epoch = score, epoch
+            best_state = {name: value.detach().to("cpu").clone()
+                          for name, value in model.state_dict().items()}
+        if scheduler is not None:
+            scheduler.step()
+    train_time = time.perf_counter() - train_start
+    checkpoint_bytes = _serialize_tune_state(best_state or model.state_dict())
+    return {
+        "history": history,
+        "checkpoint_bytes": checkpoint_bytes,
+        "best_valid_score": best_score,
+        "best_epoch": best_epoch,
+        "train_time_sec": train_time,
+        "model_class": model.__class__.__name__,
+        "optimizer_config": optimizer_config,
+        "parameter_count": sum(p.numel() for p in model.parameters() if p.requires_grad),
+    }
+
+
+def _serialize_tune_state(state_dict) -> bytes:
+    import io
+
+    import torch
+
+    buffer = io.BytesIO()
+    torch.save(state_dict, buffer)
+    return buffer.getvalue()
+
+
+def _apply_tuning_overrides(spec: PilotRunSpec, overrides: dict) -> PilotRunSpec:
+    """Apply ``key=value`` tuning overrides to a spec (architecture + recipe)."""
+
+    import dataclasses
+
+    payload = dict(dataclasses.asdict(spec))
+    for raw_key, raw_value in overrides.items():
+        if raw_key not in payload:
+            raise ValueError(f"unknown tuning override {raw_key!r}")
+        current = payload[raw_key]
+        if isinstance(current, bool):
+            payload[raw_key] = raw_value.lower() in {"1", "true", "yes"}
+        elif isinstance(current, int):
+            payload[raw_key] = int(raw_value)
+        elif isinstance(current, float):
+            payload[raw_key] = float(raw_value)
+        elif current is None:
+            payload[raw_key] = raw_value
+        else:
+            payload[raw_key] = raw_value
+    return PilotRunSpec(**payload)
+
+
+def _write_tuning_run(result_root, spec: PilotRunSpec, matrix: FormalMatrix, provider, result, device, tuning_id: str) -> Path:
+    import hashlib
+
+    run_dir = (
+        Path(result_root) / "pilot" / _formal_profile_for(spec.dataset)
+        / "tuning" / f"{spec.key}|tune_{tuning_id}"
+    )
+    run_dir.mkdir(parents=True, exist_ok=True)
+    (run_dir / "history.json").write_text(json.dumps(result["history"]), encoding="utf-8")
+    (run_dir / "checkpoint.pt").write_bytes(result["checkpoint_bytes"])
+    artifacts = {"history": "history.json", "checkpoint": "checkpoint.pt"}
+    artifact_sha = {
+        name: hashlib.sha256((run_dir / relative).read_bytes()).hexdigest()
+        for name, relative in artifacts.items()
+    }
+    manifest = {
+        "status": "completed",
+        "run_level": "tuning",
+        "eligibility": "tuning_only",
+        "evidence_status": "full_completed",
+        "run_id": f"{spec.key}|tune_{tuning_id}",
+        "matrix_id": matrix.matrix_id,
+        "matrix_sha256": matrix.matrix_sha256,
+        "tuning_id": tuning_id,
+        "model_id": spec.model_id,
+        "dataset": spec.dataset,
+        "condition_id": spec.condition_id,
+        "seed": spec.seed,
+        "split_seed": spec.split_seed,
+        "mask_seed": spec.mask_seed,
+        "history_len": spec.history_len,
+        "pred_len": spec.pred_len,
+        "stride": spec.stride,
+        "epochs": spec.epochs,
+        "batch_size": spec.batch_size,
+        "hidden_dim": spec.hidden_dim,
+        "learning_rate": spec.learning_rate,
+        "recipe": {
+            "recipe_version": matrix.recipe_version,
+            "selection_metric": "valid_mae",
+            "epochs": spec.epochs,
+            "batch_size": spec.batch_size,
+            "learning_rate": spec.learning_rate,
+            "weight_decay": spec.weight_decay,
+            "scheduler": spec.scheduler,
+            "grad_clip_norm": spec.grad_clip_norm,
+        },
+        "protocol_sha": provider.protocol_fingerprint(),
+        "model_class": result.get("model_class"),
+        "optimizer_config": result.get("optimizer_config"),
+        "best_valid_score": result.get("best_valid_score"),
+        "best_epoch": result.get("best_epoch"),
+        "parameter_count": result.get("parameter_count"),
+        "train_seconds": result.get("train_time_sec"),
+        "artifacts": artifacts,
+        "artifact_sha256": artifact_sha,
+        "checkpoint_sha256": artifact_sha["checkpoint"],
+        "test_evaluation_count": 0,
+        "code_fingerprint": _code_fingerprint(_REPO_ROOT),
+        "device": str(device),
+    }
+    manifest_path = run_dir / "manifest.json"
+    manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+    return manifest_path
 
 
 def _formal_manifest_path(result_root, key: FormalRunKey) -> Path:
@@ -597,6 +774,58 @@ def main() -> int:
                     and entry["valid_point_finite"] for entry in report["entries"]
                 ),
                 "test_metric_count": report["test_metric_count"],
+            }, ensure_ascii=False))
+            return 0
+        if args.mode == "tune":
+            if not args.tuning_id:
+                print("--mode tune requires --tuning-id", file=sys.stderr)
+                return 2
+            if len(keys) != 1 or keys[0].family != "ours":
+                print(
+                    "--mode tune expects exactly one ours key (use --family ours "
+                    "and narrow to one protocol/condition)",
+                    file=sys.stderr,
+                )
+                return 2
+            key = keys[0]
+            protocol_block = matrix.protocols[key.protocol]
+            condition = next(
+                item for item in protocol_block["conditions"]
+                if item["condition_id"] == key.condition_id
+            )
+            spec = _formal_spec(key, matrix, protocol_block, condition)
+            overrides = {}
+            for raw in args.tune_set or []:
+                name, _, value = raw.partition("=")
+                overrides[name.strip()] = value.strip()
+            if overrides:
+                spec = _apply_tuning_overrides(spec, overrides)
+            workers = _resolve_formal_workers(formal_device, args.num_workers)
+            provider = _formal_provider_factory(
+                paths.data_root, paths.output_root, formal_device, num_workers=workers,
+            )(
+                dataset=key.protocol,
+                history_len=spec.history_len,
+                pred_len=spec.pred_len,
+                stride=spec.stride,
+                mechanism=spec.missing_mode,
+                requested_rate=spec.target_missing_rate,
+                mask_seed=spec.mask_seed,
+                split_seed=spec.split_seed,
+            )
+            result = _formal_tune_run(spec, provider, formal_device)
+            manifest_path = _write_tuning_run(
+                paths.output_root, spec, matrix, provider, result, formal_device,
+                tuning_id=args.tuning_id,
+            )
+            print(json.dumps({
+                "event": "formal-tune",
+                "tuning_id": args.tuning_id,
+                "overrides": overrides,
+                "best_valid_score": result["best_valid_score"],
+                "best_epoch": result["best_epoch"],
+                "test_evaluation_count": 0,
+                "manifest": str(manifest_path),
             }, ensure_ascii=False))
             return 0
         if args.mode == "full":
