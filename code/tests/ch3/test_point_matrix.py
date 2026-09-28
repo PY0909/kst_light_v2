@@ -258,6 +258,88 @@ def test_apply_tuning_overrides_and_write_tuning_artifact(tmp_path: Path):
         _apply_tuning_overrides(spec, {"nonexistent_field": "1"})
 
 
+def test_prediction_detail_cap_keeps_full_test_metrics(monkeypatch):
+    """V2-CH3-SINGLE-T03 review fix: on huge test sets (TEP 710k windows) the
+    per-window detail dump is capped to keep the artifact on disk, while the
+    top-level metrics stay full-test-set (accumulator over every batch)."""
+
+    import torch
+    from kaf_profiti.experiments.pilot_runner import (
+        PilotRunSpec,
+        _test_prediction_artifact,
+    )
+
+    class _MetaProvider:
+        num_sensors = 3
+
+        class bundle:  # noqa: N801 - minimal shape for evaluation metadata
+            split_info = {}
+
+    class _OnesModel(torch.nn.Module):
+        def predict_point(self, batch):
+            return batch.y_flat + 1.0
+
+    spec = PilotRunSpec(
+        key="k", track="point", matrix_name="m", dataset="d", model_id="li_tcn",
+        head_type="linear", family="baseline", condition_id="c",
+        missing_mode="mixed", target_missing_rate=0.3, seed=2026,
+        split_seed=2026, mask_seed=2026, history_len=8, pred_len=2, stride=1,
+        epochs=1, batch_size=4, hidden_dim=4,
+    )
+
+    def _loader():
+        from kaf_profiti.industrial.batch import IndustrialCollator
+        from torch.utils.data import DataLoader
+
+        class _Window(torch.utils.data.Dataset):
+            def __init__(self, offset, count):
+                self.offset, self.count = offset, count
+
+            def __len__(self):
+                return self.count
+
+            def __getitem__(self, index):
+                from kaf_profiti.industrial.batch import IndustrialBatch
+
+                base = self.offset + index
+                y = torch.full((2, 3), float(base))
+                return IndustrialBatch(
+                    X_obs=torch.zeros(8, 3), T_obs=torch.arange(8, dtype=torch.float32),
+                    M_obs=torch.ones(8, 3), T_q=torch.arange(2, dtype=torch.float32),
+                    Y_q=y, M_q=torch.ones_like(y), context=torch.zeros(2),
+                    y_flat=y.reshape(-1), mq_flat=torch.ones_like(y.reshape(-1)),
+                    query_channel_ids=torch.arange(3).repeat(2),
+                    rul=0.0, unit_id=base, window_id=f"w{base}",
+                )
+
+        return DataLoader(
+            _Window(0, 12), batch_size=4,
+            collate_fn=IndustrialCollator(),
+        )
+
+    monkeypatch.setenv("KST_PREDICTION_DETAIL_CAP", "5")
+    metrics, payload = _test_prediction_artifact(
+        _OnesModel(), _loader(), "cpu", spec, _MetaProvider(),
+    )
+    # detail capped at 5 of 12 windows, flagged truncated
+    assert len(payload["window_id"]) == 5
+    assert payload["detail_truncated"] is True
+    assert payload["full_test_windows"] == 12
+    # but the top-level metrics cover the FULL 12-window set (MAE == 1.0)
+    assert metrics["mae"] == pytest.approx(1.0)
+    assert metrics["detail_windows_stored"] == 5
+    assert metrics["metrics_basis"] == "full_test_set"
+
+    # with the cap above the set size, behaviour is unchanged (full detail)
+    monkeypatch.setenv("KST_PREDICTION_DETAIL_CAP", "100")
+    metrics2, payload2 = _test_prediction_artifact(
+        _OnesModel(), _loader(), "cpu", spec, _MetaProvider(),
+    )
+    assert len(payload2["window_id"]) == 12
+    assert payload2["detail_truncated"] is False
+    assert metrics2["mae"] == pytest.approx(1.0)
+
+
 def test_baseline_first_gate_blocks_ours(tmp_path: Path):
     matrix = _matrix()
     keys = _fd001_keys(matrix)

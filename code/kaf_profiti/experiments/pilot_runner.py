@@ -34,6 +34,7 @@ try:
 except ImportError:  # pragma: no cover - declared in requirement.txt
     tqdm = None
 
+from kaf_profiti.experiments.accumulators import GlobalMetricAccumulator
 from kaf_profiti.experiments.evaluator import (
     artifact_sha256,
     metrics_from_prediction_payload,
@@ -922,6 +923,21 @@ def _valid_score(
     return total / max(count, 1.0)
 
 
+#: V2-CH3-SINGLE-T03 review fix: per-window prediction detail is capped so a
+#: 710k-window test set (TEP) cannot produce a ~40GB JSON artifact. Metrics
+#: always cover the FULL test set via a parallel accumulator pass; only the
+#: replayable per-window detail dump is capped. Override with
+#: KST_PREDICTION_DETAIL_CAP.
+PREDICTION_DETAIL_WINDOW_CAP = 10_000
+
+
+def _detail_cap() -> int:
+    import os
+
+    raw = os.environ.get("KST_PREDICTION_DETAIL_CAP")
+    return int(raw) if raw else PREDICTION_DETAIL_WINDOW_CAP
+
+
 def _test_prediction_artifact(
     model,
     loader,
@@ -959,6 +975,10 @@ def _test_prediction_artifact(
         )
     model.eval()
     offset = 0
+    cap = _detail_cap()
+    truncated = False
+    accumulator = GlobalMetricAccumulator()
+    alpha = (1.0 - float(spec.interval_level)) / 2.0
     _synchronize(device)
     evaluation_start = time.perf_counter()
     with torch.no_grad():
@@ -966,20 +986,10 @@ def _test_prediction_artifact(
             batch = _batch_to_device(batch, device)
             prediction = model.predict_point(batch)
             batch_size = int(batch.y_flat.shape[0])
-            window_ids = getattr(batch, "window_id", None)
-            if window_ids is None:
-                window_ids = [
-                    hashlib.sha256(
-                        f"{spec.key}|test|{offset + index}".encode("utf-8")
-                    ).hexdigest()
-                    for index in range(batch_size)
-                ]
-            payload["window_id"].extend(str(value) for value in window_ids)
-            payload["target"].extend(batch.y_flat.detach().cpu().tolist())
-            payload["prediction"].extend(prediction.detach().cpu().tolist())
-            payload["mask"].extend(batch.mq_flat.detach().cpu().tolist())
-            if payload["query_channel_ids"] is None:
-                payload["query_channel_ids"] = batch.query_channel_ids.detach().cpu().tolist()
+
+            # full-test-set metrics: every batch feeds the accumulator
+            accumulator.update_point(batch.y_flat, prediction, batch.mq_flat)
+            lower = upper = None
             if spec.track == "probabilistic":
                 samples = model.sample_flat(batch, nsamples=spec.nsamples)
                 nll_rows = _nll_rows(model, batch)
@@ -987,14 +997,60 @@ def _test_prediction_artifact(
                 lower, upper = _interval_bounds(
                     model, batch, samples, spec.interval_level
                 )
-                score_counts = (
-                    (batch.mq_flat > 0) & batch.y_flat.isfinite() & prediction.isfinite()
+                row_counts = (
+                    (batch.mq_flat > 0) & batch.y_flat.isfinite()
                 ).sum(dim=-1)
-                payload["lower"].extend(lower.detach().cpu().tolist())
-                payload["upper"].extend(upper.detach().cpu().tolist())
-                payload["nll_sum_per_window"].extend(nll_rows.detach().cpu().tolist())
-                payload["crps_sum_per_window"].extend(crps_rows.detach().cpu().tolist())
-                payload["score_count_per_window"].extend(score_counts.detach().cpu().tolist())
+                accumulator.update_nll(
+                    float((nll_rows * row_counts).sum().cpu()),
+                    float(row_counts.sum().cpu()),
+                )
+                accumulator.update_crps(
+                    float((crps_rows * row_counts).sum().cpu()),
+                    float(row_counts.sum().cpu()),
+                )
+                qlo = torch.quantile(samples, alpha, dim=1)
+                qhi = torch.quantile(samples, 1.0 - alpha, dim=1)
+                iv = (batch.mq_flat > 0) & batch.y_flat.isfinite() & qlo.isfinite() & qhi.isfinite()
+                accumulator.update_interval_sums(
+                    "main",
+                    float(((batch.y_flat >= qlo) & (batch.y_flat <= qhi) & iv).sum()),
+                    float(torch.where(iv, qhi - qlo, torch.zeros_like(qhi)).sum()),
+                    float(iv.sum()),
+                )
+
+            # replayable detail dump: capped, partial fill of the final batch
+            room = cap - len(payload["window_id"])
+            take = batch_size if room >= batch_size else max(room, 0)
+            if take < batch_size:
+                truncated = True
+            if take > 0:
+                window_ids = getattr(batch, "window_id", None)
+                if window_ids is None:
+                    window_ids = [
+                        hashlib.sha256(
+                            f"{spec.key}|test|{offset + index}".encode("utf-8")
+                        ).hexdigest()
+                        for index in range(batch_size)
+                    ]
+                payload["window_id"].extend(str(value) for value in window_ids[:take])
+                payload["target"].extend(
+                    batch.y_flat.detach().cpu()[:take].tolist()
+                )
+                payload["prediction"].extend(
+                    prediction.detach().cpu()[:take].tolist()
+                )
+                payload["mask"].extend(batch.mq_flat.detach().cpu()[:take].tolist())
+                if payload["query_channel_ids"] is None:
+                    payload["query_channel_ids"] = batch.query_channel_ids.detach().cpu().tolist()
+                if spec.track == "probabilistic":
+                    score_counts = (
+                        (batch.mq_flat > 0) & batch.y_flat.isfinite() & prediction.isfinite()
+                    ).sum(dim=-1)
+                    payload["lower"].extend(lower.detach().cpu()[:take].tolist())
+                    payload["upper"].extend(upper.detach().cpu()[:take].tolist())
+                    payload["nll_sum_per_window"].extend(nll_rows.detach().cpu()[:take].tolist())
+                    payload["crps_sum_per_window"].extend(crps_rows.detach().cpu()[:take].tolist())
+                    payload["score_count_per_window"].extend(score_counts.detach().cpu()[:take].tolist())
             offset += batch_size
     _synchronize(device)
     evaluation_seconds = time.perf_counter() - evaluation_start
@@ -1009,7 +1065,28 @@ def _test_prediction_artifact(
             repeats=3,
         ),
     }
-    return metrics_from_prediction_payload(payload), payload
+    full_result = (
+        accumulator.result() if spec.track == "probabilistic"
+        else accumulator.point_only_result()
+    )
+    payload["detail_truncated"] = bool(truncated)
+    payload["detail_windows_stored"] = len(payload["window_id"])
+    payload["full_test_windows"] = int(offset)
+    payload["full_test_metrics"] = full_result
+
+    metrics = metrics_from_prediction_payload(payload)
+    # the payload detail may be a capped subset; the top-level global metrics
+    # always come from the full-test-set accumulator pass
+    for field in ("mae", "rmse", "valid_count"):
+        metrics[field] = full_result[field]
+    if spec.track == "probabilistic":
+        for field in ("nll", "crps", "picp", "mpiw"):
+            metrics[field] = full_result[field]
+    metrics["metrics_basis"] = "full_test_set"
+    metrics["detail_windows_stored"] = len(payload["window_id"])
+    if truncated:
+        metrics["per_channel_basis"] = f"detail_subset ({len(payload['window_id'])} of {offset} windows)"
+    return metrics, payload
 
 
 def _legacy_fingerprint_allowed(manifest: dict, spec: PilotRunSpec) -> bool:
