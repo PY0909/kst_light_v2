@@ -598,7 +598,15 @@ def test_default_probabilistic_trainer_uses_one_replayable_test_payload(tmp_path
     assert len(payload["lower"]) == len(payload["window_id"])
     assert len(payload["nll_sum_per_window"]) == len(payload["window_id"])
     assert len(payload["crps_sum_per_window"]) == len(payload["window_id"])
-    assert metrics_from_prediction_payload(payload) == outcome["metrics"]
+    # V2-CH3-SINGLE-T03: metrics now come from the full-test-set accumulator
+    # (float64 accumulation) instead of payload re-derivation, so equality
+    # holds to float32 precision rather than bit-exactly
+    replay = metrics_from_prediction_payload(payload)
+    for field, value in outcome["metrics"].items():
+        if isinstance(value, float):
+            assert replay[field] == pytest.approx(value, rel=1e-6, abs=1e-9), field
+        else:
+            assert replay[field] == value, field
 
 
 def test_crps_rows_matches_pairwise_definition_without_quadratic_tensor():

@@ -997,16 +997,16 @@ def _test_prediction_artifact(
                 lower, upper = _interval_bounds(
                     model, batch, samples, spec.interval_level
                 )
-                row_counts = (
-                    (batch.mq_flat > 0) & batch.y_flat.isfinite()
+                # _nll_rows/_crps_rows are per-window SUMS; the accumulator
+                # denominator must match the payload replay exactly
+                score_counts = (
+                    (batch.mq_flat > 0) & batch.y_flat.isfinite() & prediction.isfinite()
                 ).sum(dim=-1)
                 accumulator.update_nll(
-                    float((nll_rows * row_counts).sum().cpu()),
-                    float(row_counts.sum().cpu()),
+                    float(nll_rows.sum().cpu()), float(score_counts.sum().cpu())
                 )
                 accumulator.update_crps(
-                    float((crps_rows * row_counts).sum().cpu()),
-                    float(row_counts.sum().cpu()),
+                    float(crps_rows.sum().cpu()), float(score_counts.sum().cpu())
                 )
                 qlo = torch.quantile(samples, alpha, dim=1)
                 qhi = torch.quantile(samples, 1.0 - alpha, dim=1)
@@ -1215,7 +1215,7 @@ def pilot_train_and_evaluate(
     if best_state is not None:
         model.load_state_dict(best_state)
         model.to(device)
-    _, predictions = _test_prediction_artifact(
+    test_metrics, predictions = _test_prediction_artifact(
         model, loaders["test"], device, spec, provider
     )
     predictions["timing"]["train_seconds"] = [train_time]
@@ -1223,6 +1223,14 @@ def pilot_train_and_evaluate(
         parameter.numel() for parameter in model.parameters() if parameter.requires_grad
     )
     metrics = metrics_from_prediction_payload(predictions)
+    # the payload detail may be capped; the full-test-set globals and their
+    # basis flags come from the artifact pass and must survive this re-derivation
+    for field in ("mae", "rmse", "valid_count", "nll", "crps", "picp", "mpiw"):
+        if field in test_metrics:
+            metrics[field] = test_metrics[field]
+    for flag in ("metrics_basis", "detail_windows_stored", "per_channel_basis"):
+        if flag in test_metrics:
+            metrics[flag] = test_metrics[flag]
     checkpoint_bytes = _serialize_state(model.state_dict())
     return {
         "history": history,

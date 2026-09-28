@@ -340,6 +340,75 @@ def test_prediction_detail_cap_keeps_full_test_metrics(monkeypatch):
     assert metrics2["mae"] == pytest.approx(1.0)
 
 
+def test_trainer_metrics_carry_full_test_basis(monkeypatch):
+    """Integration guard: pilot_train_and_evaluate must keep the full-test-set
+    globals when the replayable detail is capped (the artifact-level unit test
+    alone missed the trainer's re-derivation)."""
+
+    import torch
+    from kaf_profiti.experiments.pilot_runner import (
+        PilotRunSpec,
+        pilot_train_and_evaluate,
+    )
+
+    monkeypatch.setenv("KST_PREDICTION_DETAIL_CAP", "3")
+
+    class _MetaProvider:
+        num_sensors = 3
+
+        class bundle:  # noqa: N801
+            split_info = {}
+
+    class _OnesModel(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.dummy = torch.nn.Parameter(torch.zeros(1))
+
+        def predict_point(self, batch):
+            return batch.y_flat + 1.0
+
+        def loss(self, batch):
+            return (batch.y_flat + 1.0 - batch.y_flat).pow(2).mean() + self.dummy * 0.0
+
+    from kaf_profiti.industrial.batch import IndustrialCollator
+    from torch.utils.data import DataLoader
+
+    class _Window(torch.utils.data.Dataset):
+        def __len__(self):
+            return 8
+
+        def __getitem__(self, index):
+            from kaf_profiti.industrial.batch import IndustrialBatch
+
+            y = torch.full((2, 3), float(index))
+            return IndustrialBatch(
+                X_obs=torch.zeros(4, 3), T_obs=torch.arange(4, dtype=torch.float32),
+                M_obs=torch.ones(4, 3), T_q=torch.arange(2, dtype=torch.float32),
+                Y_q=y, M_q=torch.ones_like(y), context=torch.zeros(2),
+                y_flat=y.reshape(-1), mq_flat=torch.ones_like(y.reshape(-1)),
+                query_channel_ids=torch.arange(3).repeat(2),
+                rul=0.0, unit_id=index, window_id=f"w{index}",
+            )
+
+    loader = DataLoader(_Window(), batch_size=4, collate_fn=IndustrialCollator())
+    spec = PilotRunSpec(
+        key="k", track="point", matrix_name="m", dataset="d", model_id="li_tcn",
+        head_type="linear", family="baseline", condition_id="c",
+        missing_mode="mixed", target_missing_rate=0.3, seed=2026,
+        split_seed=2026, mask_seed=2026, history_len=4, pred_len=2, stride=1,
+        epochs=1, batch_size=4, hidden_dim=4,
+    )
+    result = pilot_train_and_evaluate(
+        _OnesModel(), {"train": loader, "valid": loader, "test": loader},
+        spec, _MetaProvider(), device="cpu",
+    )
+    metrics = result["metrics"]
+    assert metrics["metrics_basis"] == "full_test_set"
+    assert metrics["detail_windows_stored"] == 3
+    assert metrics["mae"] == pytest.approx(1.0)     # full 8-window set
+    assert metrics["valid_count"] == 8 * 6          # not the 3-window subset
+
+
 def test_baseline_first_gate_blocks_ours(tmp_path: Path):
     matrix = _matrix()
     keys = _fd001_keys(matrix)
