@@ -603,6 +603,9 @@ def test_default_probabilistic_trainer_uses_one_replayable_test_payload(tmp_path
     # holds to float32 precision rather than bit-exactly
     replay = metrics_from_prediction_payload(payload)
     for field, value in outcome["metrics"].items():
+        if field not in replay:
+            # trainer-only annotation fields (metrics_basis, detail flags)
+            continue
         if isinstance(value, float):
             assert replay[field] == pytest.approx(value, rel=1e-6, abs=1e-9), field
         else:
