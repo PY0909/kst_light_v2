@@ -1196,3 +1196,10 @@
 - **概率链路实测**：`--mode smoke --protocol cmapss_fd001` 七模型（含 kst_flow_v2 与 profiti）all_passed——loss finite、参数更新、valid 前向 finite、test_metric_count=0。
 - **T04 义务登记**：四个 KAFNet 条目保持 schema 拒绝（not_implemented）；适配通过后入矩阵并将 baseline 计数门禁 6→10；`kaf_profiti_joint`（enabled）留作 CH5 风险 baseline。
 - **并行状态**：远端链（1c58336）继续 TEP 阶段，本 Task 改动只增不删零影响。
+
+## 2026-09-30（V2-CH4-CODE-T02 审查与整改）
+
+- **审查发现**：① F1 测试质量——新增的 KAFNet 拒绝测试用"追加"方式，实际触发的是组成计数门禁（7≠6）而非 registry not_implemented 门禁（经由错误路径变绿）；② F2 核实项——`_formal_tune_run` 是否透传 nsamples（核实：是，概率调参与正式轨同 nsamples ✓）；③ F3 前瞻磁盘风险（登记为 CH4-SINGLE 前置义务）；④ F4 文档项——本 Task 实际触碰 formal_matrix.py/run_pilot_matrix.py（计划文件清单早于 C0 架构重排，接线职责的自然落点，非违规扩散）。
+- **整改**（全量 **470 passed**）：F1 改为"替换一个核心 baseline"（计数保持 6，registry 门禁本身触发，match 模式锁定 not_implemented 语义）。
+- **F3 磁盘预算前瞻（CH4-SINGLE 启动前必须落实）**：概率轨 prediction 明细每窗口 ~7.5k 值（较 ch3 翻倍），按 ch3 实测字节率外推——TEP/fd004 每概率 run ~1.0–1.2GB、MetroPT ~0.9GB/run；CH4-SINGLE 全量（六协议 × 7 模型）新增约 **20–25GB**，而第三章链收官时预计余量 ~26GB——**紧贴红线**。缓解选项（CH4-SINGLE 前决策）：概率轨 KST_PREDICTION_DETAIL_CAP 降至 5000，或建立"下载+本地验证后清理远端已验签 run 目录"的逐协议清理规程。
+- 正面确认：interval_level/nsamples 在正式轨（`_test_prediction_artifact` 的 `_interval_bounds`）与调参轨（`_valid_score`）均被真实消费（不只是 manifest 记录）；概率 smoke 未产生 run 目录污染；fd001 的 prob 条件 mask 与 point 条件共享同一 bundle（mask 身份不含 condition_id，缓存命中无重复生成）。

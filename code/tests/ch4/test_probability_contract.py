@@ -325,11 +325,15 @@ def test_ch4_registry_status_and_not_implemented_gating():
         assert spec.status in {"pilot_ready", "enabled"}, model["model_id"]
 
     # the four KAFNet entries stay rejected while not_implemented (T04 adds
-    # them and then widens the baseline count gate)
-    raw["models"] = raw["models"] + [
+    # them and then widens the baseline count gate). Replace one core baseline
+    # so the count stays valid — the registry gate itself must fire, not the
+    # composition-count gate.
+    raw["models"] = [
         {"model_id": "kafnet_gaussian", "family": "baseline", "head_type": "flow"}
+        if m["model_id"] == "grafiti_gaussian" else m
+        for m in raw["models"]
     ]
-    with pytest.raises(ValueError, match="kafnet_gaussian"):
+    with pytest.raises(ValueError, match="kafnet_gaussian.*registry|registry.*kafnet_gaussian|not_implemented"):
         validate_formal_matrix(raw, "ch4")
 
 
