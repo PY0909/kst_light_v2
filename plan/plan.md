@@ -882,9 +882,9 @@ FD001、FD002、FD003、FD004 是四个独立正式协议。MetroPT 使用 `rand
 
 ### Task V2-CH4-CODE-T03：第四章泄漏与 artifact 门禁
 
-- [ ] 测试 test label 不进入训练、early stopping、flow temperature、区间校准或模型选择。
-- [ ] prediction artifact 保存 forecast/query 时间、unit、samples/quantiles、point mean、protocol SHA 和 checkpoint SHA。
-- [ ] validator 检查同一 run 的 point/probabilistic 指标来自同一个 checkpoint，test 评估计数为 1。
+- [x] 测试 test label 不进入训练、early stopping、flow temperature、区间校准或模型选择。（2026-09-30：双层锁定——结构性：`_formal_tune_run` 调参通道注入 tripwire test loader，任何触碰立即断言失败（且返回显式 `test_evaluation_count=0`）；行为性：双 run 等价测试——同 train/valid、test 目标放大 10^6 倍，checkpoint 逐字节一致 + 选型分数一致（test 不进训练/选型/early stopping；ch4 无 flow temperature/事后区间校准参数，区间由同源样本分位数给出，无消费 test 的拟合）。）
+- [x] prediction artifact 保存 forecast/query 时间、unit、samples/quantiles、point mean、protocol SHA 和 checkpoint SHA。（payload 新增 `T_q`（逐窗查询时间序列）、`unit_id`、概率轨 `quantile_median`（与既有 lower/upper 同源样本）——全部随明细封顶；`_write_formal_run` 改为**先写 checkpoint 后写 predictions**，将 checkpoint SHA256 与协议身份摘要（split/normalization/mask SHA）嵌入 prediction artifact——两份产物不可能静默指向不同模型。）
+- [x] validator 检查同一 run 的 point/probabilistic 指标来自同一个 checkpoint，test 评估计数为 1。（`validate_results` 新增 linkage 检查：predictions 内嵌 checkpoint SHA ≠ manifest 记录值 → 显式失败"checkpoint linkage mismatch"；字段缺失（ch3 既有产物）跳过不误伤；test_evaluation_count=1 检查既有。伪造 mismatch/匹配两路径测试锁定。全量 475 passed。）
 
 ### Task V2-CH4-CODE-T04：KAFNet/ProFITi 适配决策
 

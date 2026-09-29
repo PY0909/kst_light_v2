@@ -1203,3 +1203,12 @@
 - **整改**（全量 **470 passed**）：F1 改为"替换一个核心 baseline"（计数保持 6，registry 门禁本身触发，match 模式锁定 not_implemented 语义）。
 - **F3 磁盘预算前瞻（CH4-SINGLE 启动前必须落实）**：概率轨 prediction 明细每窗口 ~7.5k 值（较 ch3 翻倍），按 ch3 实测字节率外推——TEP/fd004 每概率 run ~1.0–1.2GB、MetroPT ~0.9GB/run；CH4-SINGLE 全量（六协议 × 7 模型）新增约 **20–25GB**，而第三章链收官时预计余量 ~26GB——**紧贴红线**。缓解选项（CH4-SINGLE 前决策）：概率轨 KST_PREDICTION_DETAIL_CAP 降至 5000，或建立"下载+本地验证后清理远端已验签 run 目录"的逐协议清理规程。
 - 正面确认：interval_level/nsamples 在正式轨（`_test_prediction_artifact` 的 `_interval_bounds`）与调参轨（`_valid_score`）均被真实消费（不只是 manifest 记录）；概率 smoke 未产生 run 目录污染；fd001 的 prob 条件 mask 与 point 条件共享同一 bundle（mask 身份不含 condition_id，缓存命中无重复生成）。
+
+## 2026-09-30（V2-CH4-CODE-T03 完成：泄漏门禁与 artifact 身份）
+
+- **TDD**：新建 `code/tests/ch4/test_leakage_gates.py` 5 项先红后绿；全量 **475 passed / 0 failed**（470+5）。
+- **泄漏门禁**：① 调参轨结构性隔离——`_formal_tune_run` 增加 loaders 注入点（CLI 不受影响），测试注入 tripwire test loader（任何迭代即断言失败）+ 返回值显式 `test_evaluation_count=0`；② checkpoint 选择与 test 无关——双 run 等价测试（同 train/valid，test 目标 ×10^6）：checkpoint 逐字节一致、选型分数一致；③ ch4 区间由同源样本分位数给出，无 flow temperature/事后校准参数（无消费 test 的拟合面）。
+- **prediction artifact 身份增强**：payload 新增 `T_q`（forecast/query 时间）、`unit_id`、概率轨 `quantile_median`；`_write_formal_run` 重排为 checkpoint-first——checkpoint SHA256 + 协议身份摘要（split/normalization/mask）嵌入 predictions.json。
+- **validator linkage**：predictions 内嵌 checkpoint SHA 与 manifest 不一致 → "checkpoint linkage mismatch" 显式失败；字段缺失（ch3 既有产物）跳过——向前兼容。
+- **并行状态**：远端链（1c58336）继续 TEP 阶段零影响；本 Task 改动只增不删（唯一行为变化是产物写入顺序与新增字段，既有 ch3 产物的 validator 语义不变）。
+- **下一步**：V2-CH4-CODE-T04（KAFNet/ProFITi 适配决策——CH4-CODE 最后一个 Task）。

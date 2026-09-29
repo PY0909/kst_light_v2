@@ -954,6 +954,8 @@ def _test_prediction_artifact(
         "schema_version": 1,
         "track": spec.track,
         "window_id": [],
+        "T_q": [],
+        "unit_id": [],
         "target": [],
         "prediction": [],
         "mask": [],
@@ -968,6 +970,7 @@ def _test_prediction_artifact(
             {
                 "lower": [],
                 "upper": [],
+                "quantile_median": [],
                 "nll_sum_per_window": [],
                 "crps_sum_per_window": [],
                 "score_count_per_window": [],
@@ -1033,6 +1036,10 @@ def _test_prediction_artifact(
                         for index in range(batch_size)
                     ]
                 payload["window_id"].extend(str(value) for value in window_ids[:take])
+                payload["T_q"].extend(batch.T_q.detach().cpu()[:take].tolist())
+                payload["unit_id"].extend(
+                    int(value) for value in batch.unit_id.detach().cpu()[:take].tolist()
+                )
                 payload["target"].extend(
                     batch.y_flat.detach().cpu()[:take].tolist()
                 )
@@ -1046,8 +1053,10 @@ def _test_prediction_artifact(
                     score_counts = (
                         (batch.mq_flat > 0) & batch.y_flat.isfinite() & prediction.isfinite()
                     ).sum(dim=-1)
+                    median = torch.quantile(samples, 0.5, dim=1)
                     payload["lower"].extend(lower.detach().cpu()[:take].tolist())
                     payload["upper"].extend(upper.detach().cpu()[:take].tolist())
+                    payload["quantile_median"].extend(median.detach().cpu()[:take].tolist())
                     payload["nll_sum_per_window"].extend(nll_rows.detach().cpu()[:take].tolist())
                     payload["crps_sum_per_window"].extend(crps_rows.detach().cpu()[:take].tolist())
                     payload["score_count_per_window"].extend(score_counts.detach().cpu()[:take].tolist())

@@ -70,6 +70,23 @@ def _check_key(key, matrix, result_root: Path):
             issues["artifacts"] = f"artifact sha mismatch {name}"
             break
 
+    # V2-CH4-CODE-T03: the prediction artifact must reference the same
+    # checkpoint as the manifest (absent on pre-ch4 runs: skipped, not failed)
+    predictions_path = run_dir / "predictions.json"
+    if predictions_path.is_file() and issues["artifacts"] is None:
+        try:
+            predictions_payload = json.loads(predictions_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            predictions_payload = {}
+        linkage = predictions_payload.get("checkpoint_sha256") if isinstance(
+            predictions_payload, dict
+        ) else None
+        expected_checkpoint = manifest.get("checkpoint_sha256")
+        if linkage is not None and expected_checkpoint is not None and linkage != expected_checkpoint:
+            issues["artifacts"] = (
+                "checkpoint linkage mismatch: predictions reference another checkpoint"
+            )
+
     metrics_path = run_dir / "metrics.json"
     if metrics_path.is_file():
         metrics = json.loads(metrics_path.read_text(encoding="utf-8"))

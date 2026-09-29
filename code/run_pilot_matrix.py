@@ -238,7 +238,7 @@ def _default_formal_run(spec, provider, device, show_progress=None):
     return result
 
 
-def _formal_tune_run(spec: PilotRunSpec, provider, device, show_progress=None):
+def _formal_tune_run(spec: PilotRunSpec, provider, device, show_progress=None, loaders=None):
     """Validation-only full-budget trainer for dataset-specific tuning.
 
     Same training loop, optimizer, scheduler and epoch budget as the formal
@@ -263,7 +263,9 @@ def _formal_tune_run(spec: PilotRunSpec, provider, device, show_progress=None):
         spec, provider.num_sensors, provider.context_dim,
         _provider_options(provider), device=device,
     )
-    loaders = _loaders(provider, spec.batch_size, spec.seed)
+    loaders = loaders if loaders is not None else _loaders(
+        provider, spec.batch_size, spec.seed
+    )
     optimizer_config = _optimizer_config(spec)
     optimizer = torch.optim.AdamW(
         model.parameters(),
@@ -305,6 +307,7 @@ def _formal_tune_run(spec: PilotRunSpec, provider, device, show_progress=None):
         "model_class": model.__class__.__name__,
         "optimizer_config": optimizer_config,
         "parameter_count": sum(p.numel() for p in model.parameters() if p.requires_grad),
+        "test_evaluation_count": 0,
     }
 
 
@@ -454,8 +457,22 @@ def _write_formal_run(result_root, spec: PilotRunSpec, matrix: FormalMatrix, pro
     run_dir.mkdir(parents=True, exist_ok=True)
     (run_dir / "history.json").write_text(json.dumps(result["history"]), encoding="utf-8")
     (run_dir / "metrics.json").write_text(json.dumps(result["metrics"]), encoding="utf-8")
-    (run_dir / "predictions.json").write_text(json.dumps(result["predictions"]), encoding="utf-8")
+    # checkpoint first: its digest is embedded into the prediction artifact so
+    # the two can never silently refer to different models
     (run_dir / "checkpoint.pt").write_bytes(result["checkpoint_bytes"])
+    checkpoint_sha = hashlib.sha256((run_dir / "checkpoint.pt").read_bytes()).hexdigest()
+    predictions_payload = dict(result["predictions"])
+    predictions_payload["checkpoint_sha256"] = checkpoint_sha
+    fingerprint = provider.protocol_fingerprint()
+    predictions_payload["protocol_sha256"] = {
+        "dataset": fingerprint.get("dataset"),
+        "split_sha256": fingerprint.get("split_sha256"),
+        "normalization_sha256": fingerprint.get("normalization_sha256"),
+        "mask_sha": fingerprint.get("mask_sha"),
+    }
+    (run_dir / "predictions.json").write_text(
+        json.dumps(predictions_payload, ensure_ascii=False), encoding="utf-8"
+    )
     artifacts = {
         "history": "history.json",
         "metrics": "metrics.json",
