@@ -1180,3 +1180,9 @@
 - **契约检查**（`evaluator.require_probabilistic_contract`，与 ch3 的 `require_point_contract` 对偶）：合成或给定 batch 上验证表面齐全性、sample 形状/有限/掩零、nll 有限、flow 点口径确定性、interval95 非反转（反向区间显式 ValueError，测试锁定）。
 - **kst_flow 增量**：`QUANTILE_LEVELS` 常量 + `quantiles_flat()`（seeded 128 样本分位数）。
 - **下一步**：V2-CH4-CODE-T02（概率矩阵接线与模型注册——ch4 权威矩阵激活 + registry 状态核验 + dry-run）。
+
+## 2026-09-30（V2-CH4-CODE-T01 审查与整改）
+
+- **审查发现**：① P1 流程——工厂闭环测试加入后未重跑全量套件即提交（违反自设绿门禁）；② P2 隐患——`GaussianHeadPointAdapter` 惰性建参与 trainer"先建 optimizer 后首 forward"的时序冲突（scale 不会进优化器；当前 ch4 矩阵无此路径，属 CH5 前瞻隐患）；③ P3 表面——checkbox 要求的 `distribution` 访问器缺失；④ 记录项——nll/samples/interval coverage 的运行时记录归 T02 runner 接线（登记为 T02 前置义务）。
+- **整改**（新增 2 项测试，全量 **466 passed / 0 failed**）：① 全量重跑补上门禁；② `num_flat` 急切建参（optimizer 先于 forward 的顺序下参数必然可见，惰性路径保留但 docstring 显式警告）+ 顺序测试锁定；③ `distribution(batch)` 访问器（对角=闭式 mean/scale，flow=样本式表示并指向 sample 访问器，不造代理分布）+ 形状/正性测试。
+- 正面确认：flow 点口径确定性（KSTFlowV2 base mean 与 UnifiedFlowModel seeded mean 两类均锁）、区间反转守卫、工厂三代表闭环、只增不删并行纪律（远端链在 1c58336 运行不受影响）。

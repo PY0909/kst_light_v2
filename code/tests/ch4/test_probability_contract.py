@@ -233,6 +233,39 @@ def test_factory_baseline_models_adapt_cleanly():
         assert ((quantiles[1] - quantiles[0]) > 0).all()
 
 
+def test_gaussian_head_eager_construction_covers_optimizer_ordering():
+    """Review remediation: with num_flat the scale parameter exists before any
+    forward, so an optimizer built first (the trainer's ordering) trains it."""
+
+    adapter = adapt_probabilistic(
+        _TinyPoint(), explicit_gaussian_head=True, num_flat=P * N
+    )
+    assert adapter.model.log_scale is not None
+    # optimizer built BEFORE any forward still sees the parameter
+    before = adapter.model.log_scale.detach().clone()
+    optimizer = torch.optim.AdamW(
+        [p for p in adapter.model.parameters() if p.requires_grad], lr=1e-2
+    )
+    batch = _batch()
+    optimizer.zero_grad()
+    adapter.model.loss(batch).backward()
+    optimizer.step()
+    assert not torch.equal(before, adapter.model.log_scale.detach())
+
+
+def test_adapter_distribution_accessor():
+    diagonal = adapt_probabilistic(_TinyDiagonal())
+    flow = adapt_probabilistic(_TinyFlow())
+    batch = _batch()
+    diag_dist = diagonal.distribution(batch)
+    assert diag_dist["kind"] == "diagonal_gaussian"
+    assert diag_dist["mean"].shape == (B, P, N)
+    assert (diag_dist["scale"] > 0).all()
+    flow_dist = flow.distribution(batch)
+    assert flow_dist["kind"] == "flow_samples"
+    assert flow_dist["sample_accessor"] == "sample"
+
+
 def test_registry_kst_flow_v2_adapter_end_to_end():
     from kaf_profiti.experiments.registry import create_model
 

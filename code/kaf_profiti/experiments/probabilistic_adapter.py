@@ -39,13 +39,20 @@ class GaussianHeadPointAdapter(UnifiedGaussianModel):
     the adapter needs no shape knowledge at construction time).
     """
 
-    def __init__(self, point_model):
+    def __init__(self, point_model, num_flat: int = None):
         super().__init__()
         self.point_model = point_model
         self.log_scale = None
+        if num_flat is not None:
+            # eager construction: the parameter exists before any optimizer is
+            # built, so trainers that create the optimizer before the first
+            # forward still train the scale
+            self.log_scale = torch.nn.Parameter(torch.zeros(int(num_flat)))
 
     def _ensure_scale(self, batch) -> None:
         if self.log_scale is None:
+            # lazy fallback: NOTE an optimizer built before the first forward
+            # will not see this parameter — prefer passing num_flat
             num_flat = int(batch.y_flat.shape[-1])
             self.log_scale = torch.nn.Parameter(torch.zeros(num_flat))
 
@@ -82,6 +89,27 @@ class ProbabilisticAdapter:
 
     def nll(self, batch) -> float:
         return float(self.model.batch_nll(batch).detach())
+
+    def distribution(self, batch) -> dict:
+        """Distribution representation for the manifest/evaluator layer.
+
+        Diagonal heads expose closed-form (mean, scale); flows are
+        sample-based — the representation names the kind and the seeded
+        sample path (``sample``) as the distribution, never a surrogate.
+        """
+
+        if self.gaussian_kind == "diagonal":
+            mean, scale = self.model.gaussian_params(batch)
+            return {
+                "kind": "diagonal_gaussian",
+                "mean": mean.detach(),
+                "scale": scale.detach(),
+            }
+        return {
+            "kind": "flow_samples",
+            "sample_accessor": "sample",
+            "nsamples_hint": int(getattr(self.model, "interval_nsamples", 128)),
+        }
 
     def quantiles(self, batch, levels) -> torch.Tensor:
         """[L, B, P*N] quantiles, monotone non-decreasing in level."""
@@ -126,7 +154,9 @@ class ProbabilisticAdapter:
         return identity
 
 
-def adapt_probabilistic(model, explicit_gaussian_head: bool = False) -> ProbabilisticAdapter:
+def adapt_probabilistic(
+    model, explicit_gaussian_head: bool = False, num_flat: int = None
+) -> ProbabilisticAdapter:
     """Adapt a registered model to the chapter-4 probabilistic surface.
 
     Flow models are detected by ``gaussian_kind == "flow"`` (duck-typed, so
@@ -154,7 +184,7 @@ def adapt_probabilistic(model, explicit_gaussian_head: bool = False) -> Probabil
             model=model, head_type="gaussian_diag", gaussian_kind="diagonal"
         )
     if explicit_gaussian_head:
-        wrapped = GaussianHeadPointAdapter(model)
+        wrapped = GaussianHeadPointAdapter(model, num_flat=num_flat)
         return ProbabilisticAdapter(
             model=wrapped, head_type="adapted_gaussian", gaussian_kind="diagonal"
         )
