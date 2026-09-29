@@ -1170,3 +1170,13 @@
 
 - **go/no-go：GO**（`plan/ch3_central_go_no_go.json`，schema ch3-central-go-no-go-v1）：主指标第一路径直接达标——test MAE 全场最低，领先最优 baseline（li_tcn）**17.3%**；RMSE 同为全场最低；finite/fairness/test-count 门禁全过。与 H2 旧 run（0.2266，residual 口径）相比，MLP 冻结口径重跑改善 6.3%。预注册准则与六 run 身份链（共享 split `eb7b957c`/mask `ed1c0695`/matrix `6e73fbf0`）完整入档；code fingerprint 跨 commit 差异如实注明（62e4c09→f096a67 仅 validator/tests/docs 变更，训练路径代码一致）。
 - **放行**：T03（外部五协议：FD001–FD004 baseline reference + validation-only 调参 + TEP）与 T04（MetroPT 其余五条件 30 runs）解锁。单种子 go/no-go 为工程诊断口径，不作模型优越性的统计结论（多 seed 阶段才做正式比较）。
+
+## 2026-09-30（V2-CH4-CODE-T01 完成：概率 adapter 与统一 head——与服务器链并行的本机工作）
+
+- **并行纪律**：服务器链（TEP 调参→ours→T04）继续在远端 `1c58336` 上运行，本 Task 全部改动只增不删（新增 `probabilistic_adapter.py`/`tests/ch4/`、evaluator 增函数、kst_flow 增常量与方法），不触碰第三章链消费的任何行为；远端在链结束前不 pull。
+- **TDD**：新建 `code/tests/ch4/test_probability_contract.py` 9 项先红后绿；全量 **463 passed / 0 failed**（455+9，其中工厂三代表模型闭环测试 1 项在绿后补入前先行验证）。
+- **统一表面**（`ProbabilisticAdapter`）：`point_mean`（flow=模型自身确定口径：KSTFlowV2 的 flow base mean / UnifiedFlowModel 的 seeded sample mean，逐位确定性测试锁定）、`sample`（[B,S,P·N] 掩零有限）、`quantiles`（参数化 levels，[L,B,P·N]，单调；diagonal=mean+z·scale、flow=seeded 样本分位数同源分布）、`nll`；`manifest_identity()` 输出 head_type/gaussian_kind/selection_metric(valid_crps)/quantile_levels/point_nsamples/point_seed/interval_nsamples。
+- **点模型入场规则**：静默拒绝（ch4 矩阵必须概率头——计划禁止静默 Gaussian 回退）；显式 `explicit_gaussian_head=True` 时 `GaussianHeadPointAdapter` 包装（惰性建 scale 参数、softplus+min_scale、继承 UnifiedGaussianModel 完整 loss/nll/sample 表面），head_type=`adapted_gaussian`。
+- **契约检查**（`evaluator.require_probabilistic_contract`，与 ch3 的 `require_point_contract` 对偶）：合成或给定 batch 上验证表面齐全性、sample 形状/有限/掩零、nll 有限、flow 点口径确定性、interval95 非反转（反向区间显式 ValueError，测试锁定）。
+- **kst_flow 增量**：`QUANTILE_LEVELS` 常量 + `quantiles_flat()`（seeded 128 样本分位数）。
+- **下一步**：V2-CH4-CODE-T02（概率矩阵接线与模型注册——ch4 权威矩阵激活 + registry 状态核验 + dry-run）。

@@ -867,9 +867,9 @@ FD001、FD002、FD003、FD004 是四个独立正式协议。MetroPT 使用 `rand
 
 **文件：** 新建 `code/kaf_profiti/experiments/probabilistic_adapter.py`，修改现有 `code/kaf_profiti/models/kst_flow.py`、`code/kaf_profiti/experiments/evaluator.py`；如需兼容导入，新增 `kst_flow_v2.py` 只能作为薄模块。
 
-- [ ] 统一 baseline 输出为 `point_mean`、`distribution/sample`、`quantiles`；适配没有概率输出的模型时明确使用 Gaussian head，并在 manifest 写 `head_type`。
-- [ ] 固定 `kst_flow_v2.predict_point()` 与 sample mean 的口径，记录 flow 的 `nll`、samples、quantile levels、interval coverage。
-- [ ] 统一计算 MAE、RMSE、NLL、CRPS、PICP、MPIW、时间和参数量，并测试 finite、sample shape 和区间单调性。
+- [x] 统一 baseline 输出为 `point_mean`、`distribution/sample`、`quantiles`；适配没有概率输出的模型时明确使用 Gaussian head，并在 manifest 写 `head_type`。（2026-09-30：`ProbabilisticAdapter` 统一表面 point_mean/sample[B,S,P·N] 掩零/quantiles[L,B,P·N] 分位数单调/nll；flow 按 `gaussian_kind=="flow"` 鸭子检测（UnifiedFlowModel 子类与独立 KSTFlowV2 均覆盖）；点模型静默入场被拒（ValueError），显式 `explicit_gaussian_head=True` 时经 `GaussianHeadPointAdapter` 包装——scale 为真实可训练参数（测试锁定单步更新），head_type=`adapted_gaussian` 入 manifest。）
+- [x] 固定 `kst_flow_v2.predict_point()` 与 sample mean 的口径，记录 flow 的 `nll`、samples、quantile levels、interval coverage。（口径锁定测试：flow 的 adapter.point_mean 两次调用逐位一致且等于模型自身 predict_point（KSTFlowV2=flow base mean、UnifiedFlowModel=seeded sample mean）；`manifest_identity()` 记录 head_type/gaussian_kind/quantile_levels/point_nsamples/point_seed/interval_nsamples；KSTFlowV2 新增 `QUANTILE_LEVELS=(0.025,0.975)` 与 `quantiles_flat()`（seeded 128 样本，同源 flow）。）
+- [x] 统一计算 MAE、RMSE、NLL、CRPS、PICP、MPIW、时间和参数量，并测试 finite、sample shape 和区间单调性。（`evaluator.require_probabilistic_contract`：sample 形状/有限/掩零、nll 有限、flow 点口径确定性、interval95 单调（反向区间显式拒绝）；统一指标六项 finite/PICP∈[0,1] 测试经 evaluate_batches 概率轨锁定；工厂三代表模型（tcn_gaussian/gru_d_gaussian/profiti）过 adapter+契约闭环。全量 463 passed。）
 
 ### Task V2-CH4-CODE-T02：概率矩阵与模型注册
 

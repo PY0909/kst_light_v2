@@ -12,6 +12,82 @@ import torch
 from kaf_profiti.experiments.accumulators import GlobalMetricAccumulator
 
 
+def require_probabilistic_contract(model, batch=None) -> None:
+    """V2-CH4-CODE-T01: enforce the chapter-4 probabilistic surface.
+
+    Checks the unified surface end to end on one synthetic or provided
+    batch: sample shape/finite/masked-zero, finite NLL, deterministic point
+    caliber for flows, and non-inverted central intervals.
+    """
+
+    import math as _math
+
+    import torch as _torch
+
+    if batch is None:
+        B, H, P, N = 2, 4, 2, 3
+        generator = _torch.Generator().manual_seed(20260913)
+        from kaf_profiti.industrial.batch import IndustrialBatch as _Batch
+
+        Y_q = _torch.randn(B, P, N, generator=generator)
+        batch = _Batch(
+            X_obs=_torch.randn(B, H, N, generator=generator),
+            T_obs=_torch.arange(H, dtype=_torch.float32).repeat(B, 1),
+            M_obs=_torch.ones(B, H, N),
+            T_q=_torch.arange(P, dtype=_torch.float32).repeat(B, 1) + H,
+            Y_q=Y_q,
+            M_q=_torch.ones(B, P, N),
+            context=_torch.randn(B, 3, generator=generator),
+            y_flat=Y_q.reshape(B, P * N),
+            mq_flat=_torch.ones(B, P * N),
+            query_channel_ids=_torch.arange(N).repeat(P),
+            rul=0.0,
+            unit_id=_torch.arange(B),
+            window_id=["w0", "w1"],
+        )
+
+    if not (
+        callable(getattr(model, "sample_flat", None))
+        and callable(getattr(model, "batch_nll", None))
+        and callable(getattr(model, "predict_point", None))
+    ):
+        raise ValueError(
+            f"chapter=ch4 requires the probabilistic surface "
+            f"(sample_flat/batch_nll/predict_point); model "
+            f"{type(model).__name__} does not provide it"
+        )
+    was_training = model.training
+    model.eval()
+    with _torch.no_grad():
+        samples = model.sample_flat(batch, nsamples=16)
+        expected = (batch.y_flat.shape[0], 16, batch.y_flat.shape[-1])
+        if tuple(samples.shape) != expected:
+            raise ValueError(f"sample_flat shape {tuple(samples.shape)} != {expected}")
+        if not _torch.isfinite(samples).all():
+            raise ValueError("sample_flat produced non-finite samples")
+        masked = samples * (batch.mq_flat.unsqueeze(1) == 0)
+        if masked.abs().max().item() != 0.0:
+            raise ValueError("sample_flat must zero masked-out query positions")
+        nll = float(model.batch_nll(batch))
+        if not _math.isfinite(nll):
+            raise ValueError(f"batch_nll is not finite: {nll}")
+        if str(getattr(model, "gaussian_kind", "diagonal")) == "flow":
+            if not _torch.equal(model.predict_point(batch), model.predict_point(batch)):
+                raise ValueError("flow predict_point must be deterministic")
+        interval = getattr(model, "interval95_flat", None)
+        if callable(interval):
+            lower, upper = interval(batch)
+            if not _torch.isfinite(lower).all() or not _torch.isfinite(upper).all():
+                raise ValueError("interval95_flat produced non-finite bounds")
+            if bool((lower > upper + 1e-6).any()):
+                raise ValueError(
+                    "interval95_flat must stay monotone: lower <= upper on "
+                    "every position"
+                )
+    if was_training:
+        model.train()
+
+
 def require_point_contract(model) -> None:
     """V2-CH3-CODE-T02: enforce the chapter=ch3 point contract on a model.
 

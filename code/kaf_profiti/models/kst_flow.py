@@ -29,6 +29,8 @@ class KSTFlowV2Config(KSTLightV2Config):
 class KSTFlowV2(KSTLightV2):
     MODEL_ID = "kst_flow_v2"
     RECIPE_VERSION = "scheme_b_v1"
+    #: V2-CH4-CODE-T01: central-interval levels recorded in every manifest
+    QUANTILE_LEVELS = (0.025, 0.975)
 
     def __init__(self, config: Optional[KSTFlowV2Config] = None, **kwargs):
         flow_config = config or KSTFlowV2Config(**kwargs)
@@ -86,6 +88,17 @@ class KSTFlowV2(KSTLightV2):
         generator = torch.Generator(device=batch.X_obs.device).manual_seed(2026)
         samples = self.sample_flat(batch, nsamples=128, generator=generator)
         return torch.quantile(samples, 0.025, dim=1), torch.quantile(samples, 0.975, dim=1)
+
+    def quantiles_flat(self, batch, levels=None):
+        """[L, B, P*N] seeded sample quantiles from the same trained flow."""
+
+        levels = tuple(levels) if levels is not None else self.QUANTILE_LEVELS
+        generator = torch.Generator(device=batch.X_obs.device).manual_seed(2026)
+        samples = self.sample_flat(batch, nsamples=128, generator=generator)
+        return torch.stack(
+            [torch.quantile(samples, float(level), dim=1) for level in levels],
+            dim=0,
+        )
 
     def gaussian_params(self, batch):
         raise AttributeError("kst_flow_v2 exposes a conditional flow, not diagonal Gaussian parameters")
