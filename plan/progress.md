@@ -1212,3 +1212,9 @@
 - **validator linkage**：predictions 内嵌 checkpoint SHA 与 manifest 不一致 → "checkpoint linkage mismatch" 显式失败；字段缺失（ch3 既有产物）跳过——向前兼容。
 - **并行状态**：远端链（1c58336）继续 TEP 阶段零影响；本 Task 改动只增不删（唯一行为变化是产物写入顺序与新增字段，既有 ch3 产物的 validator 语义不变）。
 - **下一步**：V2-CH4-CODE-T04（KAFNet/ProFITi 适配决策——CH4-CODE 最后一个 Task）。
+
+## 2026-09-30（V2-CH4-CODE-T03 审查与整改）
+
+- **审查发现**：① F1 真实卫生问题——新测试直接 `os.environ` 设置 `KST_PREDICTION_DETAIL_CAP` 未恢复（进程内环境泄漏，可能按执行顺序影响后续测试）；② F4 覆盖缺口——T_q/unit_id 仅在概率轨测试，点轨路径未断言；③ F2 如实记录——"early stopping / flow temperature / 区间校准"三项在 ch4 路径**本不存在对应机制**（无 patience 早停实现、无 temperature 参数、区间由同源样本分位数给出），泄漏覆盖对其是空真而非伪造覆盖；④ F3 记录——payload 存 `T_q`（查询时间网格，forecast origin 可由其首点导出）而不另存 T_obs（避免体积翻倍），原始 samples 不落盘（体积），以 2.5%/50%/97.5% 分位数代表。
+- **整改**（全量 **476 passed**）：F1 改 monkeypatch（自动恢复）；F4 在点轨封顶测试补 T_q/unit_id 断言。
+- 正面确认：tripwire 结构隔离真实有效（注入即断言）；checkpoint-first 嵌入使 predictions↔checkpoint 交叉验证成为可能；validator linkage 对 ch3 既有产物跳过不误伤；双 run 等价测试有实际功效（各 epoch valid 分数不同使选型非平凡，test 入选型即触发字节级差异）。

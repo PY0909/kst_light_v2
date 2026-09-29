@@ -158,7 +158,7 @@ def test_checkpoint_selection_ignores_test_targets():
     )
 
 
-def test_prediction_artifact_carries_times_units_and_median():
+def test_prediction_artifact_carries_times_units_and_median(monkeypatch):
     from kaf_profiti.experiments.pilot_runner import _test_prediction_artifact
 
     class _Diag(torch.nn.Module):
@@ -196,9 +196,7 @@ def test_prediction_artifact_carries_times_units_and_median():
         class bundle:  # noqa: N801
             split_info = {}
 
-    import os
-
-    os.environ["KST_PREDICTION_DETAIL_CAP"] = "100"
+    monkeypatch.setenv("KST_PREDICTION_DETAIL_CAP", "100")
     metrics, payload = _test_prediction_artifact(
         _Diag(), _loader(4), "cpu", _spec(track="probabilistic"), _MetaProvider(),
     )

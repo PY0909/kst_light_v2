@@ -323,6 +323,8 @@ def test_prediction_detail_cap_keeps_full_test_metrics(monkeypatch):
     )
     # detail capped at 5 of 12 windows, flagged truncated
     assert len(payload["window_id"]) == 5
+    # identity fields follow the same cap on the point track too
+    assert len(payload["T_q"]) == 5 and len(payload["unit_id"]) == 5
     assert payload["detail_truncated"] is True
     assert payload["full_test_windows"] == 12
     # but the top-level metrics cover the FULL 12-window set (MAE == 1.0)
