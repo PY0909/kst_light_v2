@@ -1186,3 +1186,13 @@
 - **审查发现**：① P1 流程——工厂闭环测试加入后未重跑全量套件即提交（违反自设绿门禁）；② P2 隐患——`GaussianHeadPointAdapter` 惰性建参与 trainer"先建 optimizer 后首 forward"的时序冲突（scale 不会进优化器；当前 ch4 矩阵无此路径，属 CH5 前瞻隐患）；③ P3 表面——checkbox 要求的 `distribution` 访问器缺失；④ 记录项——nll/samples/interval coverage 的运行时记录归 T02 runner 接线（登记为 T02 前置义务）。
 - **整改**（新增 2 项测试，全量 **466 passed / 0 failed**）：① 全量重跑补上门禁；② `num_flat` 急切建参（optimizer 先于 forward 的顺序下参数必然可见，惰性路径保留但 docstring 显式警告）+ 顺序测试锁定；③ `distribution(batch)` 访问器（对角=闭式 mean/scale，flow=样本式表示并指向 sample 访问器，不造代理分布）+ 形状/正性测试。
 - 正面确认：flow 点口径确定性（KSTFlowV2 base mean 与 UnifiedFlowModel seeded mean 两类均锁）、区间反转守卫、工厂三代表闭环、只增不删并行纪律（远端链在 1c58336 运行不受影响）。
+
+## 2026-09-30（V2-CH4-CODE-T02 完成：概率矩阵接线与模型注册）
+
+- **TDD**：`test_probability_contract.py` 追加 4 项（ch4 recipe 硬门禁字段名锁定 / registry 状态与 KAFNet not_implemented 拒绝 / `_formal_spec` 概率身份透传 / dry-run head_type+recipe 回显），先红后绿；全量 **470 passed / 0 failed**（466+4）。
+- **概率身份透传（本 Task 核心增量）**：`_formal_spec` 将矩阵 recipe 的 `interval_level=0.95`/`nsamples=100` 映射入 PilotRunSpec（此前缺失——ch4 的 CRPS/PICP/MPIW 数值与样本数强相关，七模型必须同 nsamples/同区间水平才可比）；manifest 的 recipe 块同步记录两字段。
+- **ch4 recipe 硬门禁**：formal_matrix 增加章节级必需字段（ch4: interval_level/nsamples），缺失显式报错——概率身份字段不再可能静默漂移。
+- **dry-run 增强**：输出 `model_head_types`（逐模型）与完整 `recipe` 回显；42 key 展开验证。
+- **概率链路实测**：`--mode smoke --protocol cmapss_fd001` 七模型（含 kst_flow_v2 与 profiti）all_passed——loss finite、参数更新、valid 前向 finite、test_metric_count=0。
+- **T04 义务登记**：四个 KAFNet 条目保持 schema 拒绝（not_implemented）；适配通过后入矩阵并将 baseline 计数门禁 6→10；`kaf_profiti_joint`（enabled）留作 CH5 风险 baseline。
+- **并行状态**：远端链（1c58336）继续 TEP 阶段，本 Task 改动只增不删零影响。

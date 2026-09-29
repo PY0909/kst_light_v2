@@ -13,8 +13,11 @@ import math
 import sys
 from pathlib import Path
 
+import os
+
 import pytest
 import torch
+import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT / "code"))
@@ -281,3 +284,91 @@ def test_registry_kst_flow_v2_adapter_end_to_end():
     identity = adapter.manifest_identity()
     assert identity["head_type"] == "flow"
     assert identity["gaussian_kind"] == "flow"
+
+
+# ---------------------------------------------------------------------------
+# V2-CH4-CODE-T02: matrix wiring, registry gating, and probabilistic identity
+# ---------------------------------------------------------------------------
+
+def test_ch4_matrix_recipe_gate_requires_interval_and_nsamples(tmp_path):
+    """The probabilistic identity fields are hard-gated: a ch4 matrix without
+    interval_level/nsamples cannot load, and a missing field is named."""
+
+    import yaml
+    from kaf_profiti.experiments.formal_matrix import (
+        load_formal_matrix,
+        validate_formal_matrix,
+    )
+
+    matrix_path = REPO_ROOT / "configs" / "ch4" / "probabilistic_matrix.yaml"
+    raw = yaml.safe_load(matrix_path.read_text(encoding="utf-8"))
+    validate_formal_matrix(raw, "ch4")  # authoritative entry passes
+
+    for missing in ("interval_level", "nsamples"):
+        broken = dict(raw)
+        broken["recipe"] = {
+            key: value for key, value in raw["recipe"].items() if key != missing
+        }
+        with pytest.raises(ValueError, match=missing):
+            validate_formal_matrix(broken, "ch4")
+
+
+def test_ch4_registry_status_and_not_implemented_gating():
+    from kaf_profiti.experiments.formal_matrix import validate_formal_matrix
+    from kaf_profiti.experiments.registry import get_model_spec
+
+    matrix_path = REPO_ROOT / "configs" / "ch4" / "probabilistic_matrix.yaml"
+    raw = yaml.safe_load(matrix_path.read_text(encoding="utf-8"))
+
+    for model in raw["models"]:
+        spec = get_model_spec(model["model_id"])
+        assert spec.status in {"pilot_ready", "enabled"}, model["model_id"]
+
+    # the four KAFNet entries stay rejected while not_implemented (T04 adds
+    # them and then widens the baseline count gate)
+    raw["models"] = raw["models"] + [
+        {"model_id": "kafnet_gaussian", "family": "baseline", "head_type": "flow"}
+    ]
+    with pytest.raises(ValueError, match="kafnet_gaussian"):
+        validate_formal_matrix(raw, "ch4")
+
+
+def test_formal_spec_carries_probabilistic_identity():
+    from kaf_profiti.experiments.formal_matrix import expand_formal_matrix, load_formal_matrix
+    from run_pilot_matrix import _formal_spec
+
+    matrix = load_formal_matrix(REPO_ROOT / "configs" / "ch4" / "probabilistic_matrix.yaml")
+    key = next(
+        k for k in expand_formal_matrix(matrix)
+        if k.model_id == "kst_flow_v2" and k.protocol == "cmapss_fd001"
+    )
+    protocol_block = matrix.protocols[key.protocol]
+    condition = protocol_block["conditions"][0]
+    spec = _formal_spec(key, matrix, protocol_block, condition)
+    assert spec.track == "probabilistic"
+    assert spec.interval_level == 0.95
+    assert spec.nsamples == 100
+    assert spec.epochs == matrix.recipe["epochs"]
+    assert spec.learning_rate == float(matrix.recipe["learning_rate"])
+
+
+def test_formal_dry_run_reports_head_types_and_recipe():
+    import json
+    import subprocess
+
+    env = dict(__import__("os").environ)
+    env["PYTHONPATH"] = str(REPO_ROOT / "code")
+    result = subprocess.run(
+        [
+            sys.executable, str(REPO_ROOT / "code" / "run_pilot_matrix.py"),
+            "--config", "configs/ch4/probabilistic_matrix.yaml", "--mode", "dry-run",
+        ],
+        capture_output=True, text=True, env=env, cwd=str(REPO_ROOT), timeout=120,
+    )
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["expanded_keys"] == 42
+    assert payload["model_head_types"]["kst_flow_v2"] == "flow"
+    assert payload["model_head_types"]["tcn_gaussian"] == "gaussian_diag"
+    assert payload["recipe"]["interval_level"] == 0.95
+    assert payload["recipe"]["nsamples"] == 100

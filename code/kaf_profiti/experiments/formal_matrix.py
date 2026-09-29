@@ -85,6 +85,12 @@ _REQUIRED_RECIPE_FIELDS = (
     "epochs", "batch_size", "learning_rate", "weight_decay",
     "scheduler", "grad_clip_norm",
 )
+#: V2-CH4-CODE-T02: probabilistic identity fields are hard-gated for ch4 —
+#: the sample count and central-interval level define CRPS/PICP/MPIW and must
+#: never drift silently between models of one matrix.
+_CHAPTER_RECIPE_FIELDS = {
+    "ch4": ("interval_level", "nsamples"),
+}
 _REQUIRED_SEED_FIELDS = ("seed", "split_seed", "mask_seed")
 
 
@@ -295,7 +301,8 @@ def _validate_schema_fields(chapter: str, raw: Dict) -> None:
     recipe = raw.get("recipe")
     if not isinstance(recipe, dict):
         _fail("recipe must be a mapping")
-    missing_recipe = [f for f in _REQUIRED_RECIPE_FIELDS if f not in recipe]
+    required = _REQUIRED_RECIPE_FIELDS + _CHAPTER_RECIPE_FIELDS.get(chapter, ())
+    missing_recipe = [f for f in required if f not in recipe]
     if missing_recipe:
         _fail(f"recipe missing explicit fields {missing_recipe}")
     seeds = raw.get("seeds")

@@ -193,6 +193,8 @@ def _formal_spec(key: FormalRunKey, matrix: FormalMatrix, protocol_block: dict, 
         scheduler=recipe.get("scheduler"),
         patience=recipe.get("patience"),
         grad_clip_norm=float(recipe["grad_clip_norm"]),
+        interval_level=float(recipe["interval_level"]) if "interval_level" in recipe else 0.95,
+        nsamples=int(recipe["nsamples"]) if "nsamples" in recipe else 20,
     )
 
 
@@ -474,6 +476,8 @@ def _write_formal_run(result_root, spec: PilotRunSpec, matrix: FormalMatrix, pro
         "scheduler": spec.scheduler,
         "patience": spec.patience,
         "grad_clip_norm": spec.grad_clip_norm,
+        "interval_level": spec.interval_level,
+        "nsamples": spec.nsamples,
     }
     manifest = {
         "status": "completed",
@@ -718,6 +722,8 @@ def _formal_dry_run(config: str) -> int:
             "recipe_version": matrix.recipe_version,
             "seeds": matrix.seeds,
             "model_order": [m["model_id"] for m in matrix.models],
+            "model_head_types": {m["model_id"]: m["head_type"] for m in matrix.models},
+            "recipe": dict(matrix.recipe),
             "planned_models": matrix.planned_model_ids,
             "instantiated_models": [],
             "expanded_keys": len(keys),
