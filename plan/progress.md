@@ -1218,3 +1218,9 @@
 - **审查发现**：① F1 真实卫生问题——新测试直接 `os.environ` 设置 `KST_PREDICTION_DETAIL_CAP` 未恢复（进程内环境泄漏，可能按执行顺序影响后续测试）；② F4 覆盖缺口——T_q/unit_id 仅在概率轨测试，点轨路径未断言；③ F2 如实记录——"early stopping / flow temperature / 区间校准"三项在 ch4 路径**本不存在对应机制**（无 patience 早停实现、无 temperature 参数、区间由同源样本分位数给出），泄漏覆盖对其是空真而非伪造覆盖；④ F3 记录——payload 存 `T_q`（查询时间网格，forecast origin 可由其首点导出）而不另存 T_obs（避免体积翻倍），原始 samples 不落盘（体积），以 2.5%/50%/97.5% 分位数代表。
 - **整改**（全量 **476 passed**）：F1 改 monkeypatch（自动恢复）；F4 在点轨封顶测试补 T_q/unit_id 断言。
 - 正面确认：tripwire 结构隔离真实有效（注入即断言）；checkpoint-first 嵌入使 predictions↔checkpoint 交叉验证成为可能；validator linkage 对 ch3 既有产物跳过不误伤；双 run 等价测试有实际功效（各 epoch valid 分数不同使选型非平凡，test 入选型即触发字节级差异）。
+
+## 2026-09-30（流程缺陷修正：V2-CH4-CODE-T02 勾选漏写）
+
+- **用户发现的缺陷**：T02 完成时（commit `13dc825`）plan.md 勾选脚本的字符串替换**静默失败**（old_string 与文件原文不匹配且无断言），且提交时未察觉 "4 files changed"（add 了 5 个文件）的线索——T02 四框漏勾，T01/T03 及其余全部正常（全路线 36 Task 逐一核查，仅此一处）。
+- **修正**：按节定位 + 断言式补勾（replace 前后校验勾选数恰为 4）。
+- **流程加固**：此后所有 plan.md 勾选一律使用"节定位 + assert + 提交前勾选数复核"脚本；commit 前核对 git stat 的文件数与 add 列表一致。

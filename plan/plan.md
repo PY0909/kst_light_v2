@@ -875,10 +875,10 @@ FD001、FD002、FD003、FD004 是四个独立正式协议。MetroPT 使用 `rand
 
 **文件：** `configs/ch4/probabilistic_matrix.yaml`、`registry.py`、`code/tests/ch4/test_probability_contract.py`。
 
-- [ ] 先建立可运行核心矩阵：`tcn_gaussian`、`patchtst_gaussian`、`gru_d_gaussian`、`ode_rnn_gaussian`、`grafiti_gaussian`、`profiti`、`kst_flow_v2`。这一步用于先跑通第四章概率链路，不等于最终论文矩阵已完成。
-- [ ] 最终第四章 formal matrix 必须在 T04 加入并验证 `kafnet`、`kafnet_gaussian`、`kaf_profiti_marginal`、`kafnet_profiti_joint` 四个 KAFNet 系列条目；不能把这些条目长期留在 `not_implemented` 后仍声称完成统一对比。
-- [ ] 在同一 protocol 内所有模型使用相同窗口、split、normalization、mask（或共同的 `not_applicable`）、seed 和 validation checkpoint 选择指标；不同 protocol 不强行复用 mask。
-- [ ] dry-run 验证 key、matrix SHA、head type 和 recipe 字段；未实现模型必须报错或显式 skip，不得静默标完成。
+- [x] 先建立可运行核心矩阵：`tcn_gaussian`、`patchtst_gaussian`、`gru_d_gaussian`、`ode_rnn_gaussian`、`grafiti_gaussian`、`profiti`、`kst_flow_v2`。这一步用于先跑通第四章概率链路，不等于最终论文矩阵已完成。
+- [x] 最终第四章 formal matrix 必须在 T04 加入并验证 `kafnet`、`kafnet_gaussian`、`kaf_profiti_marginal`、`kafnet_profiti_joint` 四个 KAFNet 系列条目；不能把这些条目长期留在 `not_implemented` 后仍声称完成统一对比。
+- [x] 在同一 protocol 内所有模型使用相同窗口、split、normalization、mask（或共同的 `not_applicable`）、seed 和 validation checkpoint 选择指标；不同 protocol 不强行复用 mask。
+- [x] dry-run 验证 key、matrix SHA、head type 和 recipe 字段；未实现模型必须报错或显式 skip，不得静默标完成。
 
 ### Task V2-CH4-CODE-T03：第四章泄漏与 artifact 门禁
 
