@@ -1,3 +1,11 @@
+import pytest
+
+from tests.conftest import DATA_AVAILABLE
+
+pytestmark = pytest.mark.skipif(
+    not DATA_AVAILABLE, reason="raw dataset tree not present in this copy"
+)
+
 import os
 from pathlib import Path
 
@@ -15,7 +23,10 @@ from kaf_profiti.industrial.tep import (
 )
 
 
-DATA_ROOT = Path(os.environ.get("KST_DATA_ROOT", "/root/autodl-tmp/dataset"))
+DATA_ROOT = Path(os.environ.get(
+    "KST_DATA_ROOT",
+    str(Path(__file__).resolve().parents[2] / "dataset"),
+))
 DATA_DIR = DATA_ROOT / "dataverse_files"
 
 

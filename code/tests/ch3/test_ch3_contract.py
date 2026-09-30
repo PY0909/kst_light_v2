@@ -9,6 +9,14 @@ environment + checkpoint SHA), resume identity rejection, and the registry
 ``pred_len`` pass-through for the v2 point model.
 """
 
+import pytest
+
+from tests.conftest import DATA_AVAILABLE
+
+pytestmark = pytest.mark.skipif(
+    not DATA_AVAILABLE, reason="raw dataset tree not present in this copy"
+)
+
 import json
 import sys
 from pathlib import Path

@@ -8,6 +8,14 @@ and ignore environment and resolved paths. GPU fields stay null on machines
 without CUDA (e.g. the no-GPU AutoDL mode) without failing the report.
 """
 
+import pytest
+
+from tests.conftest import DATA_AVAILABLE
+
+pytestmark = pytest.mark.skipif(
+    not DATA_AVAILABLE, reason="raw dataset tree not present in this copy"
+)
+
 import copy
 import importlib
 import json

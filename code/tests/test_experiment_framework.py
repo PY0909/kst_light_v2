@@ -1,3 +1,11 @@
+import pytest
+
+from tests.conftest import DATA_AVAILABLE
+
+pytestmark = pytest.mark.skipif(
+    not DATA_AVAILABLE, reason="raw dataset tree not present in this copy"
+)
+
 import json
 import os
 from pathlib import Path
@@ -20,7 +28,10 @@ from evaluate_risk_calibration import (
 )
 
 
-DATA_ROOT = Path(os.environ.get("KST_DATA_ROOT", "/root/autodl-tmp/dataset"))
+DATA_ROOT = Path(os.environ.get(
+    "KST_DATA_ROOT",
+    str(Path(__file__).resolve().parents[2] / "dataset"),
+))
 
 
 def test_binary_risk_metrics_ignore_non_finite_scores():
