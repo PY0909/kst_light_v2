@@ -53,12 +53,14 @@ def test_hidden_decay_parameters_exist_and_flow_gradient():
 
 
 def test_hidden_decay_is_time_sensitive():
-    """Stretching the timeline (larger Δt) must change the representation —
-    the hidden decay makes the encoder time-aware on the hidden path too."""
+    """Stretching the timeline (larger Δt) must change the representation via
+    the HIDDEN path — input decay is disabled (softplus≈0) so any sensitivity
+    can only come from the hidden-state decay itself."""
 
     torch.manual_seed(11)
     encoder = GRUDEncoder(num_sensors=N, hidden_dim=HIDDEN)
     with torch.no_grad():
+        encoder.decay_rate.fill_(-20.0)  # softplus≈0 → input decay inert
         near = encoder(_batch(mask_last_missing=True, time_scale=1.0))
         far = encoder(_batch(mask_last_missing=True, time_scale=4.0))
     assert not torch.allclose(near, far), "hidden decay must respond to Δt"
