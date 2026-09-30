@@ -21,18 +21,21 @@ class GRUDGaussian(UnifiedGaussianModel):
     IMPLEMENTATION = "adapted"
     SOURCE_IDENTITY = (
         "GRU-D (Che et al., 2018): the model consumes the observation mask, "
-        "the elapsed time since the last observation and a learnable "
-        "exponential input decay toward the train mean, followed by a unified "
-        "diagonal Gaussian prediction head; adapted: one learnable "
-        "non-negative decay rate per sensor instead of a per-feature affine "
-        "rate map, and no hidden-state decay term"
+        "the elapsed time since the last observation, a learnable exponential "
+        "input decay toward the train mean, and a hidden-state decay between "
+        "GRU updates (dual decay), followed by a unified diagonal Gaussian "
+        "prediction head; adapted: diagonal per-sensor input rate and "
+        "per-hidden-unit hidden rate driven by the step's mean elapsed time "
+        "(the coupled W_gamma map of the original is simplified to this "
+        "diagonal form, as in common public GRU-D reimplementations)"
     )
     REQUIRES_TIME_INPUT = True
     ADAPTER = (
         "native sparse input: missing values decay as "
         "exp(-softplus(rate)*delta_t) toward the train-only fill value (0.0 in "
         "the frozen normalized space); delta_t follows the GRU-D recursion over "
-        "the final shared mask"
+        "the final shared mask; hidden state decays by "
+        "exp(-softplus(hidden_rate)*delta_t_step) before each GRU cell update"
     )
 
     def __init__(

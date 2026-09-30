@@ -1224,3 +1224,13 @@
 - **用户发现的缺陷**：T02 完成时（commit `13dc825`）plan.md 勾选脚本的字符串替换**静默失败**（old_string 与文件原文不匹配且无断言），且提交时未察觉 "4 files changed"（add 了 5 个文件）的线索——T02 四框漏勾，T01/T03 及其余全部正常（全路线 36 Task 逐一核查，仅此一处）。
 - **修正**：按节定位 + 断言式补勾（replace 前后校验勾选数恰为 4）。
 - **流程加固**：此后所有 plan.md 勾选一律使用"节定位 + assert + 提交前勾选数复核"脚本；commit 前核对 git stat 的文件数与 add 列表一致。
+
+## 2026-09-30（GRU-D 隐状态衰减升级——第三章公平性整改，阶段 A+B 执行）
+
+- **A1 暂停链**：实证后杀链 bash（复制品测试：子进程存活重挂 PPID=1；进程树核实 ours Python 73454 与 9 个 DataLoader worker 为 Python 子进程不受影响）；TEP ours（h96 冻结配方）作为孤儿进程继续训练，跑完后 T04 不自启。杀链时机在 bash 阻塞等待 ours 时（唯一干净窗口）。
+- **B 升级**（TDD 6 项先红后绿，全量 **481 passed**）：
+  - `GRUDEncoder` 双衰减：输入衰减（逐传感器，既有）+ **隐状态衰减**（新增 `hidden_decay_rate`，逐隐藏维可学习非负率，`h ← exp(−softplus(γ_h)·Δt_step)⊙h` 在每个 GRU cell 更新前施加，Δt_step=该步距上次观测的平均耗时）——对角形式，对齐主流公开 GRU-D 复现的隐态衰减口径（原论文耦合 W_γ 映射的对角简化，SOURCE_IDENTITY 如实登记）。
+  - 实现方式：`nn.GRU` 整体调用改为 `GRUCell` 逐时步循环（隐态衰减只能步间插入）；支持多层堆叠；GRUDPoint 与 GRUDGaussian 共享编码器同时升级（第四章免费继承）。
+  - 测试锁定：机制存在且梯度流动、Δt 拉伸敏感（时间感知）、衰减激活时输出改变、输入机制回归完整、SOURCE_IDENTITY 更新且点模型端到端训练隐态衰减率、T_q 不变性（history-only 合同）。
+  - registry 三处身份同步（gru_d/gru_d_gaussian/GRUDPoint/GRUDGaussian 四份两两一致，由既有 identity 一致性测试强制——它本轮再次抓住了漂移）。
+- **待执行（阶段 C/D）**：远端 pull + preflight + 归档 6 个旧 gru_d run + ff_gru 字节对照（临时 result-root + mask 拷贝 + 1e-6 兜底）+ rev4 链（FD×4 → TEP → MetroPT 31 runs，~26h）→ 10-02 上午第三章封盘（66 run validator + go/no-go 重生成 + tag）。

@@ -357,12 +357,17 @@ class MaskedTCNPoint(_PooledPointBaseline):
 
 
 class GRUDEncoder(nn.Module):
-    """Shared GRU-D history encoder (mask + delta_t + learnable input decay).
+    """Shared GRU-D history encoder with dual decay (V2-CH3 review upgrade).
 
-    Consumes ``[x_hat, M, delta_t]`` where ``x_hat`` decays missing values as
-    ``exp(-softplus(rate)*delta_t)`` toward ``fill_value`` and returns the last
-    GRU hidden state ``[B, H]``. Shared by the point and Gaussian GRU-D
-    baselines so both speak the identical time mechanism.
+    Input decay: missing values decay as ``exp(-softplus(rate)*delta_t)``
+    toward ``fill_value`` (per-sensor learnable rate), exactly as before.
+    Hidden decay: before each GRU cell update the hidden state decays as
+    ``h <- exp(-softplus(hidden_rate)*delta_t_step) * h`` with a
+    per-hidden-unit learnable rate and the step's mean elapsed time since
+    the last observation (diagonal variant of the Che et al., 2018 coupled
+    hidden decay, matching the common public GRU-D reimplementations).
+    Shared by the point and Gaussian GRU-D baselines so both speak the
+    identical time mechanism.
     """
 
     def __init__(
@@ -376,8 +381,11 @@ class GRUDEncoder(nn.Module):
         self.num_sensors = int(num_sensors)
         self.fill_value = float(fill_value)
         self.decay_rate = nn.Parameter(torch.full((num_sensors,), 0.5))
-        self.gru = nn.GRU(
-            3 * num_sensors, hidden_dim, num_layers=int(num_layers), batch_first=True
+        self.hidden_decay_rate = nn.Parameter(torch.full((hidden_dim,), 0.5))
+        self.num_layers = int(num_layers)
+        self.cells = nn.ModuleList(
+            nn.GRUCell(3 * num_sensors if layer == 0 else hidden_dim, hidden_dim)
+            for layer in range(self.num_layers)
         )
 
     def forward(self, batch) -> Tensor:
@@ -387,8 +395,23 @@ class GRUDEncoder(nn.Module):
         decayed_missing = gamma * last_observed + (1.0 - gamma) * self.fill_value
         x_hat = torch.where(batch.M_obs > 0, batch.X_obs, decayed_missing)
         features = torch.cat([x_hat, batch.M_obs, delta], dim=-1)
-        _, hidden = self.gru(features)
-        return hidden[-1]
+
+        steps = features.shape[1]
+        hiddens = [
+            torch.zeros(features.shape[0], self.cells[0].hidden_size,
+                        device=features.device, dtype=features.dtype)
+            for _ in range(self.num_layers)
+        ]
+        gamma_hidden = torch.nn.functional.softplus(self.hidden_decay_rate)
+        for step in range(steps):
+            step_delta = delta[:, step, :].mean(dim=-1, keepdim=True)  # [B,1]
+            hidden_gate = torch.exp(-gamma_hidden * step_delta)        # [B,hidden]
+            layer_input = features[:, step, :]
+            for layer, cell in enumerate(self.cells):
+                decayed = hidden_gate * hiddens[layer]
+                hiddens[layer] = cell(layer_input, decayed)
+                layer_input = hiddens[layer]
+        return hiddens[-1]
 
 
 class GRUDPoint(_PooledPointBaseline):
@@ -397,17 +420,20 @@ class GRUDPoint(_PooledPointBaseline):
     IMPLEMENTATION = "adapted"
     SOURCE_IDENTITY = (
         "GRU-D (Che et al., 2018): the model consumes the observation mask, "
-        "the elapsed time since the last observation and a learnable "
-        "exponential input decay toward the train mean; adapted: one learnable "
-        "non-negative decay rate per sensor instead of a per-feature affine "
-        "rate map, and no hidden-state decay term"
+        "the elapsed time since the last observation, a learnable exponential "
+        "input decay toward the train mean, and a hidden-state decay between "
+        "GRU updates (dual decay); adapted: diagonal per-sensor input rate and "
+        "per-hidden-unit hidden rate driven by the step's mean elapsed time "
+        "(the coupled W_gamma map of the original is simplified to this "
+        "diagonal form, as in common public GRU-D reimplementations)"
     )
     REQUIRES_TIME_INPUT = True
     ADAPTER = (
         "native sparse input: missing values decay as "
         "exp(-softplus(rate)*delta_t) toward the train-only fill value (0.0 in "
         "the frozen normalized space); delta_t follows the GRU-D recursion over "
-        "the final shared mask"
+        "the final shared mask; hidden state decays by "
+        "exp(-softplus(hidden_rate)*delta_t_step) before each GRU cell update"
     )
 
     def __init__(
